@@ -7,12 +7,14 @@ import { useCartStore } from "@/stores/cart";
 import { useCustomerStore } from "@/stores/customers";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore } from "@/stores/ui";
+import { useCatalogStore } from "@/stores/catalog";
 import ModalShell from "@/components/common/ModalShell.vue";
 
 const cart = useCartStore();
 const customers = useCustomerStore();
 const session = useSessionStore();
 const ui = useUiStore();
+const catalog = useCatalogStore();
 
 interface DeliveryCharge {
 	name: string;
@@ -24,6 +26,9 @@ interface DeliveryCharge {
 const charges = ref<DeliveryCharge[]>([]);
 const loadingCharges = ref(false);
 const useDelivery = computed(() => !!session.profile?.posa_use_delivery_charges);
+const canSelectCurrency = computed(
+	() => !!session.currencyContext?.allow_invoice_currency_selection,
+);
 
 onMounted(() => {
 	void customers.loadSalesPersons();
@@ -77,11 +82,41 @@ function applyCharge(name: string | null) {
 	const row = charges.value.find((entry) => entry.name === name);
 	cart.deliveryChargesRate = row ? chargeRate(row) : 0;
 }
+
+async function selectCurrency(event: Event) {
+	const currency = (event.target as HTMLSelectElement).value;
+	if (!currency || currency === session.currency || !cart.isEmpty) return;
+	try {
+		await session.refreshCurrencyContext(currency);
+		await catalog.load({ force: true });
+	} catch (error) {
+		ui.fail("Could not change currency", error instanceof Error ? error.message : String(error));
+	}
+}
 </script>
 
 <template>
 	<ModalShell title="Invoice details" width="max-w-md" @close="ui.closeModal()">
 		<div class="grid gap-3 p-4 sm:grid-cols-2">
+			<label v-if="canSelectCurrency" class="block sm:col-span-2">
+				<span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-subtle">
+					Invoice currency
+				</span>
+				<select
+					:value="session.currency"
+					class="h-10 w-full rounded-card border-line bg-surface text-sm focus:border-accent focus:ring-0 disabled:opacity-60"
+					:disabled="!cart.isEmpty"
+					@change="selectCurrency"
+				>
+					<option v-for="currency in session.currencyOptions" :key="currency" :value="currency">
+						{{ currency }}
+					</option>
+				</select>
+				<span v-if="!cart.isEmpty" class="mt-1 block text-[11px] text-subtle">
+					Clear the current cart before changing its invoice currency.
+				</span>
+			</label>
+
 			<label v-if="session.profile?.posa_allow_change_posting_date" class="block">
 				<span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-subtle">
 					Posting date

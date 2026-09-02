@@ -6,17 +6,26 @@ import { ChevronDown, Search, User, X } from "lucide-vue-next";
 import { useCustomerStore } from "@/stores/customers";
 import { useCartStore } from "@/stores/cart";
 import { useSessionStore } from "@/stores/session";
+import { useCatalogStore } from "@/stores/catalog";
 
 const customers = useCustomerStore();
 const cart = useCartStore();
 const session = useSessionStore();
+const catalog = useCatalogStore();
 
 const open = ref(false);
 const searchEl = ref<HTMLInputElement | null>(null);
 
-onMounted(() => {
+onMounted(async () => {
 	void customers.load();
-	if (!cart.customer && session.profile?.customer) cart.customer = session.profile.customer;
+	if (!cart.customer && session.profile?.customer) {
+		cart.customer = session.profile.customer;
+		cart.customerInfo = await customers.info(cart.customer);
+		if (session.applyCustomerPricing(cart.customerInfo)) {
+			await session.refreshCurrencyContext();
+			await catalog.load({ force: true });
+		}
+	}
 });
 
 const current = computed(() => customers.find(cart.customer));
@@ -34,6 +43,10 @@ async function choose(name: string) {
 	cart.customer = name;
 	open.value = false;
 	cart.customerInfo = await customers.info(name);
+	if (session.applyCustomerPricing(cart.customerInfo)) {
+		await session.refreshCurrencyContext();
+		await catalog.load({ force: true });
+	}
 }
 </script>
 

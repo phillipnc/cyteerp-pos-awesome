@@ -1,9 +1,14 @@
 # Copyright (c) 2021, Youssef Restom and contributors
 # For license information, please see license.txt
 
-import frappe, requests
-from requests.auth import HTTPBasicAuth
+import hmac
 import json
+
+import frappe
+import requests
+from frappe import _
+from frappe.utils import flt
+from requests.auth import HTTPBasicAuth
 
 
 def get_token(app_key, app_secret, base_url):
@@ -19,6 +24,9 @@ def get_token(app_key, app_secret, base_url):
 def confirmation(**kwargs):
     try:
         args = frappe._dict(kwargs)
+        register = _validate_callback(args)
+        if frappe.db.exists("Mpesa Payment Register", {"transid": args.get("TransID")}):
+            return {"ResultCode": 0, "ResultDesc": "Accepted"}
         doc = frappe.new_doc("Mpesa Payment Register")
         doc.transactiontype = args.get("TransactionType")
         doc.transid = args.get("TransID")
@@ -33,6 +41,8 @@ def confirmation(**kwargs):
         doc.firstname = args.get("FirstName")
         doc.middlename = args.get("MiddleName")
         doc.lastname = args.get("LastName")
+        doc.company = register.company
+        doc.mode_of_payment = register.mode_of_payment
         doc.insert(ignore_permissions=True)
         frappe.db.commit()
         context = {"ResultCode": 0, "ResultDesc": "Accepted"}
@@ -45,8 +55,38 @@ def confirmation(**kwargs):
 
 @frappe.whitelist(allow_guest=True)
 def validation(**kwargs):
-    context = {"ResultCode": 0, "ResultDesc": "Accepted"}
-    return dict(context)
+    try:
+        args = frappe._dict(kwargs)
+        _validate_callback(args)
+        if not args.get("TransID") or flt(args.get("TransAmount")) <= 0:
+            raise ValueError("Invalid transaction")
+        return {"ResultCode": 0, "ResultDesc": "Accepted"}
+    except Exception:
+        return {"ResultCode": 1, "ResultDesc": "Rejected"}
+
+
+def _validate_callback(args):
+    """Authenticate the callback URL and bind it to a registered shortcode."""
+    shortcode = args.get("BusinessShortCode")
+    token = args.get("token") or frappe.form_dict.get("token")
+    if not shortcode or not token:
+        frappe.throw(_("Invalid M-Pesa callback"), frappe.AuthenticationError)
+
+    names = frappe.get_all(
+        "Mpesa C2B Register URL",
+        filters={"business_shortcode": shortcode, "register_status": "Success"},
+        pluck="name",
+        limit=2,
+    )
+    for name in names:
+        register = frappe.get_doc("Mpesa C2B Register URL", name)
+        expected = register.get_password("posa_callback_secret", raise_exception=False) or ""
+        if expected and hmac.compare_digest(str(token), str(expected)):
+            amount = flt(args.get("TransAmount"))
+            if amount <= 0:
+                frappe.throw(_("Invalid M-Pesa amount"))
+            return register
+    frappe.throw(_("Invalid M-Pesa callback"), frappe.AuthenticationError)
 
 
 @frappe.whitelist()

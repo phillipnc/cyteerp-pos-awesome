@@ -72,8 +72,11 @@
 {%- if company.get("company_name_arabic") %}
 <div class="c b" style="font-size:13px;margin-bottom:2px">{{ company.company_name_arabic }}</div>
 {%- endif %}
-{%- if company.get("tax_id") %}
-<div class="c muted" style="font-size:9px">VAT {{ company.tax_id }}</div>
+{%- if company.get("posa_zimra_tin") %}
+<div class="c muted" style="font-size:9px">TIN {{ company.posa_zimra_tin }}</div>
+{%- endif %}
+{%- if company.get("posa_zimra_vat_number") or company.get("tax_id") %}
+<div class="c muted" style="font-size:9px">VAT {{ company.get("posa_zimra_vat_number") or company.tax_id }}</div>
 {%- endif %}
 <div class="c" style="font-size:11px;margin:6px 0 10px">
 	{%- if doc.is_return %}CREDIT NOTE{% else %}TAX INVOICE{% endif -%}
@@ -203,7 +206,17 @@
 <div class="b" style="margin-bottom:4px">{{ _("Payment") }}</div>
 {%- for payment in doc.payments %}
 	{%- if payment.amount %}
-<div class="row" style="font-size:10px"><span>{{ payment.mode_of_payment }}</span><span>{{ money(payment.amount) }}</span></div>
+<div class="row" style="font-size:10px">
+	<span>{{ payment.mode_of_payment }}</span>
+	<span>
+		{%- if payment.get("posa_tender_currency") and payment.posa_tender_currency != doc.currency -%}
+			{{ payment.posa_tender_currency }} {{ n(payment.get("posa_tender_amount") or 0) }}
+			<br><span class="muted">={{ money(payment.amount) }}</span>
+		{%- else -%}
+			{{ money(payment.amount) }}
+		{%- endif -%}
+	</span>
+</div>
 	{%- endif %}
 {%- endfor %}
 {%- if doc.get("loyalty_amount") | float > 0 %}
@@ -219,6 +232,32 @@
 
 {%- if doc.outstanding_amount and doc.outstanding_amount > 0 %}
 <div class="row due"><span>{{ _("BALANCE DUE") }}</span><span>{{ money(doc.outstanding_amount) }}</span></div>
+{%- endif %}
+
+{#- Zimbabwe fiscal receipt details and verification QR. -#}
+{%- if doc.get("posa_fiscal_status") == "Accepted" %}
+<div class="rule"></div>
+<div class="c b" style="font-size:10px">{{ _("ZIMRA FISCALISED RECEIPT") }}</div>
+<div class="meta" style="margin:5px 0 0">
+	<div><b>{{ _("Device") }}:</b> {{ doc.get("posa_fiscal_device_id") }}</div>
+	<div><b>{{ _("Fiscal day") }}:</b> {{ doc.get("posa_fiscal_day_no") }}</div>
+	<div><b>{{ _("Global receipt") }}:</b> {{ doc.get("posa_fiscal_receipt_global_no") }}</div>
+	{%- if doc.get("posa_fiscal_receipt_id") %}
+	<div><b>{{ _("FDMS receipt") }}:</b> {{ doc.posa_fiscal_receipt_id }}</div>
+	{%- endif %}
+	{%- if doc.get("posa_fiscal_verification_code") %}
+	<div><b>{{ _("Verification") }}:</b> {{ doc.posa_fiscal_verification_code }}</div>
+	{%- endif %}
+</div>
+	{%- if doc.get("posa_fiscal_qr_url") and get_qr_data_uri is defined %}
+		{%- set fiscal_qr = get_qr_data_uri(doc.posa_fiscal_qr_url) %}
+		{%- if fiscal_qr %}
+<div class="c qr"><img src="{{ fiscal_qr }}" alt="ZIMRA verification QR"></div>
+		{%- endif %}
+	<div class="c muted" style="font-size:7px;word-break:break-all">{{ doc.posa_fiscal_qr_url }}</div>
+	{%- endif %}
+{%- elif doc.get("posa_fiscal_status") == "Failed" %}
+<div class="due c">{{ _("FISCALISATION FAILED — NOT A VALID FISCAL RECEIPT") }}</div>
 {%- endif %}
 
 {#- ZATCA QR, only where the Goldsmith app has provided the helper. -#}

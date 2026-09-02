@@ -23,6 +23,7 @@ from posawesome.posawesome.api.utils import (
 	as_dict,
 	validate_shift_access,
 )
+from posawesome.posawesome.api.currency import validate_tender_rows
 from posawesome.posawesome.doctype.delivery_charges.delivery_charges import (
 	get_applicable_delivery_charges as _get_applicable_delivery_charges,
 )
@@ -150,12 +151,9 @@ def submit_invoice(invoice, data):
 	if flt(data.get("credit_change")):
 		_create_advance_for_change(doc, data, cash_account)
 
-	total_cash = 0.0
-	if data.get("redeemed_customer_credit"):
-		total_cash = flt(doc.total) - flt(data.get("redeemed_customer_credit"))
-
 	is_payment_entry = _attach_advances(doc, data)
 	payments = list(doc.payments)
+	total_cash = sum(abs(flt(payment.amount)) for payment in payments)
 
 	# v16: flag rows so ERPNext materialises the Serial and Batch Bundle on submit.
 	auto_set_batch = cint(frappe.get_cached_value("POS Profile", doc.pos_profile, "posa_auto_set_batch"))
@@ -164,7 +162,9 @@ def submit_invoice(invoice, data):
 	doc.flags.ignore_permissions = True
 	frappe.flags.ignore_account_permission = True
 	doc.posa_is_printed = 1
+	validate_tender_rows(doc)
 	doc.save()
+	_validate_payment_policy(doc, data)
 
 	if data.get("due_date"):
 		frappe.db.set_value("Sales Invoice", doc.name, "due_date", data.get("due_date"), update_modified=False)
@@ -179,6 +179,30 @@ def submit_invoice(invoice, data):
 		settle_customer_credit(doc, data, is_payment_entry, total_cash, cash_account, payments)
 
 	return {"name": doc.name, "status": doc.docstatus, "grand_total": doc.grand_total}
+
+
+def _validate_payment_policy(doc, data):
+	"""Enforce credit and partial-payment switches on the server as well as the SPA."""
+	profile = frappe.get_cached_doc("POS Profile", doc.pos_profile)
+	paid = sum(abs(flt(row.amount)) for row in doc.get("payments") or [])
+	redeemed = abs(flt(data.get("redeemed_customer_credit"))) + abs(flt(doc.get("loyalty_amount")))
+	total = abs(flt(doc.get("rounded_total") or doc.get("grand_total")))
+	remaining = max(total - paid - redeemed, 0)
+	precision = frappe.get_precision("Sales Invoice", "grand_total") or 2
+	settled = remaining <= 0.5 / (10**precision)
+
+	if settled:
+		return
+	if doc.is_return and paid == 0:
+		if not profile.get("use_customer_credit"):
+			frappe.throw(_("Customer-credit returns are not enabled for this POS Profile"))
+		return
+	if paid == 0:
+		if not profile.get("posa_allow_credit_sale"):
+			frappe.throw(_("Credit sales are not enabled for this POS Profile"))
+		return
+	if not profile.get("posa_allow_partial_payment"):
+		frappe.throw(_("Partial payments are not enabled for this POS Profile"))
 
 
 def _resolve_cash_account(doc):
@@ -232,6 +256,26 @@ def _attach_advances(doc, data):
 		if row.get("type") != "Advance" or not flt(row.get("credit_to_redeem")):
 			continue
 		advance = frappe.get_doc("Payment Entry", row.get("credit_origin"))
+		if (
+			advance.docstatus != 1
+			or advance.company != doc.company
+			or advance.party_type != "Customer"
+			or advance.party != doc.customer
+			or advance.payment_type != "Receive"
+			or advance.paid_from_account_currency != doc.currency
+		):
+			frappe.throw(
+				_("Advance {0} is not valid for this customer and currency").format(
+					advance.name
+				)
+			)
+		amount = flt(row.get("credit_to_redeem"))
+		if amount > flt(advance.unallocated_amount):
+			frappe.throw(
+				_("Advance allocation exceeds the unallocated amount on {0}").format(
+					advance.name
+				)
+			)
 		doc.append(
 			"advances",
 			{
@@ -239,7 +283,7 @@ def _attach_advances(doc, data):
 				"reference_name": advance.name,
 				"remarks": advance.remarks,
 				"advance_amount": advance.unallocated_amount,
-				"allocated_amount": flt(row.get("credit_to_redeem")),
+				"allocated_amount": amount,
 			},
 		)
 		doc.is_pos = 0
@@ -248,31 +292,22 @@ def _attach_advances(doc, data):
 
 
 def _enqueue_pending_submissions(doc, data, is_payment_entry, total_cash, cash_account, payments):
-	"""Submit every printed-but-unsubmitted invoice for this shift in the background."""
-	pending = frappe.get_all(
-		"Sales Invoice",
-		filters={
-			"posa_pos_opening_shift": doc.posa_pos_opening_shift,
-			"docstatus": 0,
-			"posa_is_printed": 1,
+	"""Submit only this invoice with its own immutable settlement context."""
+	enqueue(
+		method=submit_in_background_job,
+		queue="short",
+		timeout=1000,
+		is_async=True,
+		job_name=f"posawesome-submit-{doc.name}",
+		kwargs={
+			"invoice": doc.name,
+			"data": data,
+			"is_payment_entry": is_payment_entry,
+			"total_cash": total_cash,
+			"cash_account": cash_account,
+			"payments": [payment.as_dict() for payment in payments],
 		},
-		pluck="name",
 	)
-	for name in pending:
-		enqueue(
-			method=submit_in_background_job,
-			queue="short",
-			timeout=1000,
-			is_async=True,
-			kwargs={
-				"invoice": name,
-				"data": data,
-				"is_payment_entry": is_payment_entry,
-				"total_cash": total_cash,
-				"cash_account": cash_account,
-				"payments": payments,
-			},
-		)
 
 
 def submit_in_background_job(kwargs):
@@ -315,6 +350,24 @@ def _knock_off_credit_invoices(doc, data):
 
 		origin = frappe.get_doc("Sales Invoice", row.get("credit_origin"))
 		amount = flt(row.get("credit_to_redeem"))
+		if (
+			origin.docstatus != 1
+			or not origin.is_return
+			or origin.company != doc.company
+			or origin.customer != doc.customer
+			or origin.currency != doc.currency
+		):
+			frappe.throw(
+				_("Credit note {0} is not valid for this customer and currency").format(
+					origin.name
+				)
+			)
+		if amount > abs(flt(origin.outstanding_amount)):
+			frappe.throw(
+				_("Credit allocation exceeds the available amount on {0}").format(
+					origin.name
+				)
+			)
 
 		journal = frappe.get_doc(
 			{
@@ -359,6 +412,24 @@ def _book_cash_legs(doc, data, payments):
 			continue
 		mode = payment.get("mode_of_payment") if isinstance(payment, dict) else payment.mode_of_payment
 		account = payment.get("account") if isinstance(payment, dict) else payment.account
+		tender_amount = flt(
+			payment.get("posa_tender_amount") if isinstance(payment, dict) else payment.posa_tender_amount
+		)
+		tender_rate = flt(
+			payment.get("posa_exchange_rate") if isinstance(payment, dict) else payment.posa_exchange_rate
+		) or 1
+		account_currency = frappe.get_cached_value("Account", account, "account_currency")
+		tender_currency = (
+			payment.get("posa_tender_currency")
+			if isinstance(payment, dict)
+			else payment.posa_tender_currency
+		) or doc.currency
+		if account_currency != tender_currency:
+			frappe.throw(
+				_("Payment account {0} must use tender currency {1}").format(
+					account, tender_currency
+				)
+			)
 
 		entry = frappe.get_doc(
 			{
@@ -368,9 +439,13 @@ def _book_cash_legs(doc, data, payments):
 				"party_type": "Customer",
 				"party": doc.customer,
 				"paid_amount": amount,
-				"received_amount": amount,
+				"received_amount": abs(tender_amount) or abs(amount) / tender_rate,
 				"paid_from": doc.debit_to,
 				"paid_to": account,
+				"paid_from_account_currency": doc.currency,
+				"paid_to_account_currency": tender_currency,
+				"source_exchange_rate": flt(doc.conversion_rate) or 1,
+				"target_exchange_rate": (flt(doc.conversion_rate) or 1) * tender_rate,
 				"company": doc.company,
 				"mode_of_payment": mode,
 				"reference_no": doc.posa_pos_opening_shift,
@@ -441,15 +516,71 @@ def search_invoices_for_return(invoice_name, company, customer=None, limit=20):
 	if not names:
 		return []
 
-	# Exclude anything already fully returned.
-	returned = set(
-		frappe.get_all(
-			"Sales Invoice",
-			filters={"return_against": ["in", names], "docstatus": 1},
-			pluck="return_against",
-		)
+	returned_names = frappe.get_all(
+		"Sales Invoice",
+		filters={"return_against": ["in", names], "docstatus": 1},
+		pluck="name",
 	)
-	return [frappe.get_doc("Sales Invoice", name).as_dict() for name in names if name not in returned]
+	returned_qty = {}
+	returned_serials = {}
+	if returned_names:
+		for row in frappe.get_all(
+			"Sales Invoice Item",
+			filters={"parent": ["in", returned_names]},
+			fields=[
+				"sales_invoice_item",
+				"qty",
+				"serial_no",
+				"batch_no",
+				"serial_and_batch_bundle",
+			],
+		):
+			if row.sales_invoice_item:
+				returned_qty[row.sales_invoice_item] = returned_qty.get(row.sales_invoice_item, 0) + flt(row.qty)
+				_restore_legacy_serial_batch_fields(row)
+				if row.get("serial_no"):
+					returned_serials.setdefault(row.sales_invoice_item, set()).update(
+						value.strip()
+						for value in row.serial_no.replace(",", "\n").splitlines()
+						if value.strip()
+					)
+
+	result = []
+	for name in names:
+		doc = frappe.get_doc("Sales Invoice", name).as_dict()
+		available_rows = []
+		for row in doc.get("items") or []:
+			remaining = max(flt(row.qty) + flt(returned_qty.get(row.name)), 0)
+			if remaining <= 0:
+				continue
+			row["posa_returnable_qty"] = remaining
+			_restore_legacy_serial_batch_fields(row)
+			if row.get("serial_no"):
+				used = returned_serials.get(row.name, set())
+				row["serial_no"] = "\n".join(
+					value.strip()
+					for value in row.serial_no.replace(",", "\n").splitlines()
+					if value.strip() and value.strip() not in used
+				)
+			available_rows.append(row)
+		if available_rows:
+			doc["items"] = available_rows
+			result.append(doc)
+	return result
+
+
+def _restore_legacy_serial_batch_fields(row):
+	"""Expose v16 bundle data to the SPA when legacy fields are empty."""
+	if row.get("serial_no") or row.get("batch_no") or not row.get("serial_and_batch_bundle"):
+		return
+	bundle = frappe.get_doc("Serial and Batch Bundle", row.get("serial_and_batch_bundle"))
+	entries = bundle.get("entries") or []
+	serials = [entry.serial_no for entry in entries if entry.serial_no]
+	batches = list(dict.fromkeys(entry.batch_no for entry in entries if entry.batch_no))
+	if serials:
+		row["serial_no"] = "\n".join(serials)
+	if len(batches) == 1:
+		row["batch_no"] = batches[0]
 
 
 @frappe.whitelist()

@@ -2,7 +2,7 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { api, OfflineError } from "@/lib/api";
-import { cacheCustomers, readCachedCustomers } from "@/lib/db";
+import { cacheCustomers, cacheStamp, readCachedCustomers } from "@/lib/db";
 import type { Customer, CustomerInfo } from "@/types";
 import { useSessionStore } from "./session";
 import { useUiStore } from "./ui";
@@ -44,7 +44,9 @@ export const useCustomerStore = defineStore("customers", () => {
 		loading.value = true;
 		try {
 			const cached = await readCachedCustomers(session.profile.name);
-			if (cached.length) {
+			const stamp = await cacheStamp("customers", session.profile.name);
+			const ttl = Math.max(Number(session.profile.posa_offline_cache_ttl ?? 60), 1) * 60_000;
+			if (cached.length && stamp && Date.now() - stamp <= ttl) {
 				customers.value = cached;
 				index(cached);
 			}

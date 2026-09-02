@@ -14,6 +14,7 @@ from frappe.utils.caching import redis_cache
 from erpnext.accounts.doctype.pos_profile.pos_profile import get_item_groups
 from erpnext.stock.get_item_details import get_item_details
 
+from posawesome.posawesome.api.currency import build_currency_context
 from posawesome.posawesome.api.utils import (
 	as_dict,
 	as_list,
@@ -48,7 +49,16 @@ ITEM_FIELDS = [
 
 
 @frappe.whitelist()
-def get_items(pos_profile, price_list=None, item_group="", search_value="", customer=None, limit=None):
+def get_items(
+	pos_profile,
+	price_list=None,
+	item_group="",
+	search_value="",
+	customer=None,
+	limit=None,
+	invoice_currency=None,
+	posting_date=None,
+):
 	"""Sellable items for a POS profile.
 
 	Honours the profile's item-group restriction, optional search limiting, and the
@@ -65,15 +75,60 @@ def get_items(pos_profile, price_list=None, item_group="", search_value="", cust
 	if profile.get("posa_use_server_cache"):
 
 		@redis_cache(ttl=ttl or 1800)
-		def _cached(profile_name, price_list, item_group, search_value, customer, limit):
-			return _get_items(profile, price_list, item_group, search_value, customer, limit)
+		def _cached(
+			profile_name,
+			price_list,
+			item_group,
+			search_value,
+			customer,
+			limit,
+			invoice_currency,
+			posting_date,
+		):
+			return _get_items(
+				profile,
+				price_list,
+				item_group,
+				search_value,
+				customer,
+				limit,
+				invoice_currency,
+				posting_date,
+			)
 
-		return _cached(profile_name, price_list, item_group, search_value, customer, limit)
+		return _cached(
+			profile_name,
+			price_list,
+			item_group,
+			search_value,
+			customer,
+			limit,
+			invoice_currency,
+			posting_date,
+		)
 
-	return _get_items(profile, price_list, item_group, search_value, customer, limit)
+	return _get_items(
+		profile,
+		price_list,
+		item_group,
+		search_value,
+		customer,
+		limit,
+		invoice_currency,
+		posting_date,
+	)
 
 
-def _get_items(profile, price_list, item_group, search_value, customer, limit):
+def _get_items(
+	profile,
+	price_list,
+	item_group,
+	search_value,
+	customer,
+	limit,
+	invoice_currency=None,
+	posting_date=None,
+):
 	warehouse = profile.get("warehouse")
 	price_list = price_list or profile.get("selling_price_list")
 	use_limit_search = cint(profile.get("pose_use_limit_search"))
@@ -136,16 +191,47 @@ def _get_items(profile, price_list, item_group, search_value, customer, limit):
 	if not items_data:
 		return []
 
-	return _decorate_items(items_data, profile, price_list, warehouse, customer, only_in_stock)
+	return _decorate_items(
+		items_data,
+		profile,
+		price_list,
+		warehouse,
+		customer,
+		only_in_stock,
+		invoice_currency,
+		posting_date,
+	)
 
 
-def _decorate_items(items_data, profile, price_list, warehouse, customer, only_in_stock):
+def _decorate_items(
+	items_data,
+	profile,
+	price_list,
+	warehouse,
+	customer,
+	only_in_stock,
+	invoice_currency=None,
+	posting_date=None,
+):
 	"""Attach prices, barcodes, stock and (optionally) batch/serial data in bulk."""
 	item_codes = [row.item_code for row in items_data]
 
-	prices = _get_item_prices(item_codes, price_list, profile.get("currency"), customer)
+	currency_context = build_currency_context(
+		profile,
+		invoice_currency=invoice_currency,
+		price_list=price_list,
+		posting_date=posting_date,
+	)
+	prices = _get_item_prices(
+		item_codes,
+		price_list,
+		currency_context["price_list_currency"],
+		customer,
+	)
+	rate_factor = flt(currency_context["item_rate_factor"]) or 1
 	barcodes = _get_barcodes(item_codes)
 	stock = get_stock_availability_bulk(item_codes, warehouse) if warehouse else {}
+	uoms = _get_uoms_bulk(item_codes)
 
 	search_batch = cint(profile.get("posa_search_batch_no"))
 	search_serial = cint(profile.get("posa_search_serial_no"))
@@ -160,12 +246,24 @@ def _decorate_items(items_data, profile, price_list, warehouse, customer, only_i
 			continue
 
 		price = prices.get(item_code, {}).get(row.stock_uom) or prices.get(item_code, {}).get("__any__") or {}
+		item_uoms = uoms.get(item_code, [])
+		for uom in item_uoms:
+			uom_price = prices.get(item_code, {}).get(uom["uom"])
+			if uom_price:
+				uom["rate"] = flt(uom_price.get("price_list_rate")) * rate_factor
+			elif price:
+				uom["rate"] = (
+					flt(price.get("price_list_rate"))
+					* flt(uom.get("conversion_factor") or 1)
+					* rate_factor
+				)
 
 		row.update(
 			{
-				"rate": flt(price.get("price_list_rate")),
-				"currency": price.get("currency") or profile.get("currency"),
+				"rate": flt(price.get("price_list_rate")) * rate_factor,
+				"currency": currency_context["invoice_currency"],
 				"item_barcode": barcodes.get(item_code, []),
+				"item_uoms": item_uoms,
 				"actual_qty": qty_on_hand,
 				"batch_no_data": (
 					get_available_batches(item_code, warehouse) if search_batch and row.has_batch_no else []
@@ -282,7 +380,21 @@ def get_item_detail(item, doc=None, warehouse=None, price_list=None):
 	details["serial_no_data"] = (
 		get_available_serial_nos(item_code, warehouse) if has_serial_no and warehouse else []
 	)
-	details["item_uoms"] = _get_uoms(item_code)
+	prices = _get_item_prices(
+		[item_code],
+		price_list,
+		item.get("price_list_currency")
+		or frappe.get_cached_value("Price List", price_list, "currency")
+		or frappe.get_cached_value("Company", item.get("company"), "default_currency"),
+		item.get("customer"),
+	).get(item_code, {})
+	conversion_rate = flt(item.get("conversion_rate")) or 1
+	plc_conversion_rate = flt(item.get("plc_conversion_rate")) or conversion_rate
+	details["item_uoms"] = _uoms_with_prices(
+		item_code,
+		prices,
+		plc_conversion_rate / conversion_rate,
+	)
 	return details
 
 
@@ -337,6 +449,26 @@ def _get_uoms(item_code):
 		fields=["uom", "conversion_factor"],
 		order_by="idx asc",
 	)
+
+
+def _uoms_with_prices(item_code, prices, rate_factor=1):
+	uoms = _get_uoms(item_code)
+	stock_uom = next(
+		(row.uom for row in uoms if flt(row.conversion_factor) == 1),
+		"",
+	)
+	base = prices.get("__any__") or prices.get(stock_uom)
+	for row in uoms:
+		price = prices.get(row.uom)
+		if price:
+			row["rate"] = flt(price.get("price_list_rate")) * rate_factor
+		elif base:
+			row["rate"] = (
+				flt(base.get("price_list_rate"))
+				* flt(row.conversion_factor or 1)
+				* rate_factor
+			)
+	return uoms
 
 
 def _get_uoms_bulk(item_codes):
@@ -417,7 +549,14 @@ def search_serial_or_batch_or_barcode_number(search_value, search_serial_no=0):
 
 
 @frappe.whitelist()
-def scan_code(pos_profile, code, price_list=None, customer=None):
+def scan_code(
+	pos_profile,
+	code,
+	price_list=None,
+	customer=None,
+	invoice_currency=None,
+	posting_date=None,
+):
 	"""Resolve a scan straight into a ready-to-add item row.
 
 	Returns ``None`` when nothing matches so the client can show "no such barcode"
@@ -430,7 +569,16 @@ def scan_code(pos_profile, code, price_list=None, customer=None):
 	if not resolved.get("item_code"):
 		return None
 
-	items = _get_items(profile, price_list, "", resolved["item_code"], customer, 1)
+	items = _get_items(
+		profile,
+		price_list,
+		"",
+		resolved["item_code"],
+		customer,
+		1,
+		invoice_currency,
+		posting_date,
+	)
 	if not items:
 		return None
 

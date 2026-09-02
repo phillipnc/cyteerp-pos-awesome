@@ -73,6 +73,13 @@ export interface POSProfile {
 	posa_allow_reconcile_payments?: 0 | 1;
 	posa_allow_mpesa_reconcile_payments?: 0 | 1;
 	posa_allow_offline_mode?: 0 | 1;
+	posa_offline_cache_ttl?: number;
+	posa_offline_max_queue?: number;
+	posa_enable_multi_currency?: 0 | 1;
+	posa_allow_invoice_currency_selection?: 0 | 1;
+	posa_allow_mixed_currency_tender?: 0 | 1;
+	posa_allowed_currencies?: string;
+	posa_exchange_rate_tolerance?: number;
 	[key: string]: unknown;
 }
 
@@ -84,6 +91,7 @@ export interface PaymentMethod {
 	account?: string;
 	type?: string;
 	currency?: string;
+	exchange_rate?: number;
 	amount?: number;
 	base_amount?: number;
 	idx?: number;
@@ -111,6 +119,8 @@ export interface SerialInfo {
 export interface UOMOption {
 	uom: string;
 	conversion_factor: number;
+	/** Price in the active invoice currency. Falls back to conversion-factor pricing. */
+	rate?: number;
 }
 
 export interface Item {
@@ -134,6 +144,10 @@ export interface Item {
 	item_uoms?: UOMOption[];
 	batch_no_data?: BatchInfo[];
 	serial_no_data?: SerialInfo[];
+	scanned_barcode?: string | null;
+	scanned_uom?: string | null;
+	scanned_serial_no?: string | null;
+	scanned_batch_no?: string | null;
 	attributes?: ItemAttribute[] | "";
 	item_attributes?: { attribute: string; attribute_value: string }[] | "";
 }
@@ -319,6 +333,22 @@ export interface ShiftBootstrap {
 	float_precision: number;
 	item_price_precision?: number;
 	pos_settings?: Record<string, unknown>;
+	currency_context?: CurrencyContext;
+}
+
+export interface CurrencyContext {
+	invoice_currency: string;
+	company_currency: string;
+	price_list: string;
+	price_list_currency: string;
+	conversion_rate: number;
+	plc_conversion_rate: number;
+	item_rate_factor: number;
+	allowed_currencies: string[];
+	currency_symbols: Record<string, string>;
+	payment_methods: PaymentMethod[];
+	allow_invoice_currency_selection: boolean;
+	allow_mixed_currency_tender: boolean;
 }
 
 export interface CreditRow {
@@ -326,6 +356,7 @@ export interface CreditRow {
 	credit_origin: string;
 	total_credit: number;
 	credit_to_redeem: number;
+	currency?: string;
 }
 
 export interface ShiftAnalytics {

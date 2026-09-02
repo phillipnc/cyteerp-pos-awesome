@@ -42,12 +42,24 @@ doc_events = {
 	"Sales Invoice": {
 		"validate": "posawesome.posawesome.api.invoice.validate",
 		"before_submit": "posawesome.posawesome.api.invoice.before_submit",
+		"on_submit": "posawesome.posawesome.api.zimbabwe_fiscal.fiscalise_invoice",
 		"before_cancel": "posawesome.posawesome.api.invoice.before_cancel",
+	},
+	"POS Closing Shift": {
+		"on_submit": "posawesome.posawesome.api.zimbabwe_fiscal.close_day_for_pos_shift",
 	},
 	"Customer": {
 		"validate": "posawesome.posawesome.api.customer.validate",
 		"after_insert": "posawesome.posawesome.api.customer.after_insert",
 	},
+}
+
+# Receipt helpers exposed to Jinja print formats.
+
+jinja = {
+	"methods": [
+		"posawesome.posawesome.api.zimbabwe_fiscal.get_qr_data_uri",
+	],
 }
 
 # ------------------------------------------------------------------------------

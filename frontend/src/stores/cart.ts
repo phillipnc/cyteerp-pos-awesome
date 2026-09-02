@@ -155,7 +155,10 @@ export const useCartStore = defineStore("cart", () => {
 
 	/* ------------------------------------------------------------- mutation */
 
-	async function addItem(item: Item, options: { qty?: number; uom?: string; batchNo?: string } = {}) {
+	async function addItem(
+		item: Item,
+		options: { qty?: number; uom?: string; batchNo?: string; serialNo?: string } = {},
+	) {
 		if (isReturn.value) {
 			ui.warn("Return in progress", "Finish or cancel the return before adding new items.");
 			return;
@@ -174,12 +177,16 @@ export const useCartStore = defineStore("cart", () => {
 
 		const conversionFactor =
 			item.item_uoms?.find((entry) => entry.uom === uom)?.conversion_factor ?? 1;
+		const uomRate = item.item_uoms?.find((entry) => entry.uom === uom)?.rate;
 
 		const line = toCartItem(item, {
 			qty: quantity,
 			uom,
 			conversion_factor: conversionFactor,
 			batch_no: options.batchNo ?? null,
+			serial_no: options.serialNo ?? null,
+			rate: uomRate ?? item.rate * conversionFactor,
+			price_list_rate: uomRate ?? item.rate * conversionFactor,
 		});
 
 		// A batch-priced item overrides the price list.
@@ -223,10 +230,10 @@ export const useCartStore = defineStore("cart", () => {
 					doctype: "Sales Invoice",
 					name: invoiceName.value,
 					company: session.companyName,
-					conversion_rate: 1,
+					conversion_rate: session.conversionRate,
 					currency: session.currency,
-					price_list_currency: session.currency,
-					plc_conversion_rate: 1,
+					price_list_currency: session.priceListCurrency,
+					plc_conversion_rate: session.plcConversionRate,
 					is_stock_item: line.is_stock_item,
 					uom: line.uom,
 					stock_uom: line.stock_uom,
@@ -248,6 +255,13 @@ export const useCartStore = defineStore("cart", () => {
 			target.cost_center = detail.cost_center as string;
 			target.item_tax_template = (detail.item_tax_template as string) ?? null;
 			target.max_discount = toNumber(detail.max_discount);
+			if (detail.price_list_rate !== undefined || detail.rate !== undefined) {
+				target.price_list_rate = money(
+					toNumber(detail.price_list_rate ?? detail.rate ?? target.price_list_rate),
+				);
+				target.rate = money(toNumber(detail.rate ?? detail.price_list_rate ?? target.rate));
+				applyLineDiscount(target, "rate");
+			}
 			target.item_uoms = (detail.item_uoms as CartItem["item_uoms"]) ?? target.item_uoms;
 			target.batch_no_data = (detail.batch_no_data as CartItem["batch_no_data"]) ?? target.batch_no_data;
 			target.serial_no_data =
@@ -359,11 +373,13 @@ export const useCartStore = defineStore("cart", () => {
 		const previousFactor = line.conversion_factor || 1;
 		line.uom = uom;
 		line.conversion_factor = option.conversion_factor;
-		// Re-base the price on the new UOM so the per-unit price stays consistent.
+		// Prefer an explicit Item Price for this UOM. Only derive from the conversion
+		// factor when the price list has no UOM-specific row.
 		const ratio = option.conversion_factor / previousFactor;
-		line.price_list_rate = money(line.price_list_rate * ratio);
+		line.price_list_rate = money(option.rate ?? line.price_list_rate * ratio);
 		applyLineDiscount(line, "percentage");
 		markDirty();
+		void hydrateLine(line);
 	}
 
 	function setSerialBatch(rowId: string, payload: { batch_no?: string | null; serial_no?: string | null }) {
@@ -472,6 +488,9 @@ export const useCartStore = defineStore("cart", () => {
 			posa_pos_opening_shift: session.shiftName,
 			customer: customer.value,
 			currency: session.currency,
+			conversion_rate: session.conversionRate,
+			price_list_currency: session.priceListCurrency,
+			plc_conversion_rate: session.plcConversionRate,
 			selling_price_list: session.priceList,
 			set_warehouse: session.warehouse,
 			posting_date: postingDate.value,
@@ -636,12 +655,15 @@ export const useCartStore = defineStore("cart", () => {
 		appliedCoupons.value = (doc.posa_coupons as Coupon[]) ?? [];
 
 		const sign = options.asReturn ? -1 : 1;
-		const maxQty: Record<string, number> = {};
+			const maxQty: Record<string, number> = {};
 
-		items.value = ((doc.items as Record<string, unknown>[]) ?? []).map((row) => {
-			const rowId = (row.posa_row_id as string) || uid("row");
-			if (options.asReturn) maxQty[row.name as string] = -toNumber(row.qty);
-			const line: CartItem = {
+			items.value = ((doc.items as Record<string, unknown>[]) ?? []).map((row) => {
+				const rowId = (row.posa_row_id as string) || uid("row");
+				const returnableQty = toNumber(row.posa_returnable_qty ?? row.qty);
+				const originalQty = Math.abs(toNumber(row.qty));
+				const returnRatio = originalQty ? returnableQty / originalQty : 0;
+				if (options.asReturn) maxQty[row.name as string] = -returnableQty;
+				const line: CartItem = {
 				posa_row_id: rowId,
 				item_code: row.item_code as string,
 				item_name: row.item_name as string,
@@ -651,12 +673,12 @@ export const useCartStore = defineStore("cart", () => {
 				stock_uom: row.stock_uom as string,
 				uom: row.uom as string,
 				conversion_factor: toNumber(row.conversion_factor) || 1,
-				qty: sign * toNumber(row.qty),
-				rate: toNumber(row.rate),
-				price_list_rate: toNumber(row.price_list_rate),
-				amount: sign * toNumber(row.amount),
-				discount_percentage: toNumber(row.discount_percentage),
-				discount_amount: toNumber(row.discount_amount),
+					qty: sign * returnableQty,
+					rate: toNumber(row.rate),
+					price_list_rate: toNumber(row.price_list_rate),
+					amount: sign * money(Math.abs(toNumber(row.amount)) * returnRatio),
+					discount_percentage: toNumber(row.discount_percentage),
+					discount_amount: money(toNumber(row.discount_amount) * returnRatio),
 				warehouse: (row.warehouse as string) ?? session.warehouse,
 				income_account: row.income_account as string,
 				cost_center: row.cost_center as string,

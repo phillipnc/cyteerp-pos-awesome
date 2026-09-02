@@ -188,10 +188,16 @@ function openMpesa() {
 						</span>
 						<label class="min-w-0 flex-1 truncate text-sm font-medium" :for="`pay-${row.mode_of_payment}`">
 							{{ row.mode_of_payment }}
+							<span class="block text-[11px] font-normal text-subtle">
+								{{ row.currency }}
+								<template v-if="row.currency !== session.currency">
+									· 1 {{ row.currency }} = {{ row.exchange_rate.toFixed(6) }} {{ session.currency }}
+								</template>
+							</span>
 						</label>
 						<input
 							:id="`pay-${row.mode_of_payment}`"
-							:value="row.amount ? Math.abs(row.amount) : ''"
+							:value="row.tendered_amount || ''"
 							type="text"
 							inputmode="decimal"
 							placeholder="0.00"
@@ -200,6 +206,13 @@ function openMpesa() {
 							@input="payments.setAmount(row.mode_of_payment, toNumber(($event.target as HTMLInputElement).value))"
 						/>
 					</div>
+					<p
+						v-for="row in payments.rows.filter((entry) => entry.tendered_amount && entry.currency !== session.currency)"
+						:key="`converted-${row.mode_of_payment}`"
+						class="-mt-1 text-right text-[11px] text-subtle"
+					>
+						{{ row.mode_of_payment }}: {{ formatCurrency(Math.abs(row.amount), session.currency) }}
+					</p>
 				</div>
 
 				<!-- Loyalty redemption — points settle part of the total before cash -->
@@ -331,6 +344,16 @@ function openMpesa() {
 
 			<!-- Balance + complete -->
 			<footer class="shrink-0 space-y-2 border-t border-line p-3">
+				<div
+					v-if="payments.isCreditSale || payments.isPartialPayment || payments.isCustomerCreditReturn"
+					class="rounded-card border border-warning/40 bg-warning-soft px-3 py-2 text-xs text-warning"
+				>
+					<span v-if="payments.isCreditSale">This sale will be posted as customer credit.</span>
+					<span v-else-if="payments.isPartialPayment">
+						The unpaid balance will remain outstanding on the customer account.
+					</span>
+					<span v-else>The refund will remain as customer credit instead of cash.</span>
+				</div>
 				<div class="flex justify-between text-sm">
 					<span class="text-muted">{{ isReturn ? "Refunded" : "Tendered" }}</span>
 					<span class="font-semibold tnum">{{ formatCurrency(Math.abs(payments.paid)) }}</span>

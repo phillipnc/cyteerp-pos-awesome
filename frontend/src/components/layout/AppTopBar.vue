@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { CloudOff, Keyboard, LogOut, ShoppingBag, Store } from "lucide-vue-next";
+import { CloudOff, HandCoins, Keyboard, LogOut, ShoppingBag, Store } from "lucide-vue-next";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore } from "@/stores/ui";
 import { useCartStore } from "@/stores/cart";
@@ -73,6 +73,16 @@ const initials = computed(() =>
 			</button>
 
 			<ConnectionPill />
+
+			<RouterLink
+				v-if="session.profile?.posa_use_pos_awesome_payments"
+				to="/payments"
+				class="grid size-9 place-items-center rounded-card text-muted transition hover:bg-surface-2 hover:text-fg"
+				title="Customer payments"
+				aria-label="Customer payments"
+			>
+				<HandCoins class="size-4.5" />
+			</RouterLink>
 
 			<button
 				type="button"

@@ -208,6 +208,8 @@ export const api = {
 		call<unknown>(`${NS}.shift.submit_closing_shift`, { closing_shift }),
 	shiftAnalytics: (opening_shift: string) =>
 		call<unknown>(`${NS}.shift.get_shift_analytics`, { opening_shift }, { method: "GET" }),
+	currencyContext: (payload: Record<string, unknown>) =>
+		call<unknown>(`${NS}.currency.get_currency_context`, payload),
 
 	/* Catalog */
 	items: (payload: Record<string, unknown>) => call<unknown>(`${NS}.catalog.get_items`, payload),
@@ -227,8 +229,8 @@ export const api = {
 	saveCustomer: (payload: Record<string, unknown>) => call<unknown>(`${NS}.customer.save_customer`, payload),
 	customerAddresses: (customer: string) => call<unknown>(`${NS}.customer.get_customer_addresses`, { customer }),
 	makeAddress: (args: Record<string, unknown>) => call<unknown>(`${NS}.customer.make_address`, { args }),
-	availableCredit: (customer: string, company: string) =>
-		call<unknown>(`${NS}.customer.get_available_credit`, { customer, company }),
+	availableCredit: (customer: string, company: string, currency?: string) =>
+		call<unknown>(`${NS}.customer.get_available_credit`, { customer, company, currency }),
 	salesPersons: () => call<unknown>(`${NS}.customer.get_sales_person_names`, {}, { method: "GET" }),
 
 	/* Invoice */

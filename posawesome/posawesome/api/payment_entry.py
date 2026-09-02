@@ -20,8 +20,7 @@ from erpnext.accounts.doctype.payment_request.payment_request import (
 from erpnext.accounts.party import get_party_account
 from erpnext.accounts.utils import get_account_currency
 from erpnext.accounts.utils import get_outstanding_invoices as _get_outstanding_invoices
-from erpnext.setup.utils import get_exchange_rate
-
+from posawesome.posawesome.api.currency import _rate
 from posawesome.posawesome.api.m_pesa import submit_mpesa_payment
 from posawesome.posawesome.api.utils import as_dict, validate_shift_access
 
@@ -37,25 +36,44 @@ def create_payment_entry(
     posting_date=None,
     cost_center=None,
     submit=0,
+    tender_currency=None,
+    tender_amount=None,
+    tender_exchange_rate=None,
 ):
-    # TODO : need to have a better way to handle currency
     date = nowdate() if not posting_date else posting_date
     party_type = "Customer"
     party_account = get_party_account(party_type, customer, company)
     party_account_currency = get_account_currency(party_account)
-    if party_account_currency != currency:
-        frappe.throw(
-            _(
-                "Currency is not correct, party account currency is {party_account_currency} and transaction currency is {currency}"
-            ).format(party_account_currency=party_account_currency, currency=currency)
-        )
     payment_type = "Receive"
-
     bank = get_bank_cash_account(company, mode_of_payment)
+    if not bank:
+        frappe.throw(
+            _("No bank or cash account is configured for {0}").format(mode_of_payment)
+        )
+
+    tender_currency = tender_currency or bank.account_currency
+    if tender_currency != bank.account_currency:
+        frappe.throw(
+            _("{0} must be received in account currency {1}").format(
+                mode_of_payment, bank.account_currency
+            )
+        )
     company_currency = frappe.get_value("Company", company, "default_currency")
-    conversion_rate = get_exchange_rate(currency, company_currency, date, "for_selling")
-    paid_amount, received_amount = set_paid_amount_and_received_amount(
-        party_account_currency, bank, amount, payment_type, None, conversion_rate
+    invoice_rate = _rate(currency, company_currency, date)
+    party_rate = _rate(party_account_currency, company_currency, date)
+    tender_rate = _rate(tender_currency, company_currency, date)
+    expected_tender_exchange_rate = tender_rate / invoice_rate
+    if tender_exchange_rate and abs(
+        flt(tender_exchange_rate) - expected_tender_exchange_rate
+    ) / expected_tender_exchange_rate > 0.05:
+        frappe.throw(_("Tender exchange rate is outside the allowed tolerance"))
+
+    company_value = abs(flt(amount)) * invoice_rate
+    paid_amount = company_value / party_rate
+    received_amount = (
+        abs(flt(tender_amount))
+        if tender_amount
+        else company_value / tender_rate
     )
 
     pe = frappe.new_doc("Payment Entry")
@@ -77,6 +95,8 @@ def create_payment_entry(
     )
     pe.paid_amount = paid_amount
     pe.received_amount = received_amount
+    pe.source_exchange_rate = party_rate
+    pe.target_exchange_rate = tender_rate
     pe.letter_head = frappe.get_value("Company", company, "default_letter_head")
     pe.reference_date = reference_date
     pe.reference_no = reference_no
@@ -236,10 +256,7 @@ def get_unallocated_payments(customer, company, currency, mode_of_payment=None):
 @frappe.whitelist()
 def process_pos_payment(payload):
     data = as_dict(payload)
-    data.pos_profile = as_dict(data.get("pos_profile"))
     validate_shift_access(data.get("pos_opening_shift_name"))
-    if not data.pos_profile.get("posa_use_pos_awesome_payments"):
-        frappe.throw(_("POS Awesome Payments is not enabled for this POS Profile"))
 
     # validate data
     if not data.customer:
@@ -253,6 +270,19 @@ def process_pos_payment(payload):
     if not data.pos_opening_shift_name:
         frappe.throw(_("POS Opening Shift is required"))
 
+    profile = frappe.get_cached_doc("POS Profile", data.pos_profile_name)
+    opening = frappe.get_cached_doc("POS Opening Shift", data.pos_opening_shift_name)
+    if (
+        profile.company != data.company
+        or opening.pos_profile != profile.name
+        or opening.company != data.company
+        or opening.status != "Open"
+    ):
+        frappe.throw(_("POS Profile, company and opening shift do not match"))
+    if not profile.get("posa_use_pos_awesome_payments"):
+        frappe.throw(_("POS Awesome Payments is not enabled for this POS Profile"))
+    data.pos_profile = profile
+
     company = data.company
     currency = data.currency
     customer = data.customer
@@ -263,6 +293,51 @@ def process_pos_payment(payload):
         "posa_allow_mpesa_reconcile_payments"
     )
     today = nowdate()
+    allowed_modes = {row.mode_of_payment for row in profile.get("payments") or []}
+    for payment_method in data.get("payment_methods") or []:
+        if payment_method.get("mode_of_payment") not in allowed_modes:
+            frappe.throw(
+                _("Mode of Payment {0} is not configured for this POS Profile").format(
+                    payment_method.get("mode_of_payment")
+                )
+            )
+
+    validated_invoices = []
+    for selected in data.get("selected_invoices") or []:
+        invoice = frappe.get_cached_doc("Sales Invoice", selected.get("name"))
+        if (
+            invoice.docstatus != 1
+            or invoice.company != company
+            or invoice.customer != customer
+            or invoice.currency != currency
+            or flt(invoice.outstanding_amount) <= 0
+        ):
+            frappe.throw(_("Invoice {0} is not available for reconciliation").format(invoice.name))
+        validated_invoices.append(
+            frappe._dict(
+                name=invoice.name,
+                posting_date=invoice.posting_date,
+                grand_total=invoice.grand_total,
+                outstanding_amount=invoice.outstanding_amount,
+                currency=invoice.currency,
+            )
+        )
+    data.selected_invoices = validated_invoices
+
+    validated_payments = []
+    for selected in data.get("selected_payments") or []:
+        payment = frappe.get_cached_doc("Payment Entry", selected.get("name"))
+        if (
+            payment.docstatus != 1
+            or payment.company != company
+            or payment.party_type != "Customer"
+            or payment.party != customer
+            or payment.payment_type != "Receive"
+            or flt(payment.unallocated_amount) <= 0
+        ):
+            frappe.throw(_("Payment {0} is not available for reconciliation").format(payment.name))
+        validated_payments.append(payment.as_dict())
+    data.selected_payments = validated_payments
 
     new_payments_entry = []
     all_payments_entry = []
@@ -306,6 +381,9 @@ def process_pos_payment(payload):
                     reference_date=today,
                     cost_center=data.pos_profile.get("cost_center"),
                     submit=1,
+                    tender_currency=payment_method.get("currency"),
+                    tender_amount=payment_method.get("tendered_amount"),
+                    tender_exchange_rate=payment_method.get("exchange_rate"),
                 )
                 new_payments_entry.append(new_payment_entry)
                 all_payments_entry.append(new_payment_entry)

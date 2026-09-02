@@ -49,7 +49,12 @@ async function onSubmitSearch() {
 
 	const resolved = await catalog.resolveScan(lookup);
 	if (resolved) {
-		await cart.addItem(resolved, scale ? { qty: scale.weight } : {});
+		await cart.addItem(resolved, {
+			qty: scale?.weight,
+			uom: resolved.scanned_uom ?? undefined,
+			batchNo: resolved.scanned_batch_no ?? undefined,
+			serialNo: resolved.scanned_serial_no ?? undefined,
+		});
 		catalog.setSearch("");
 		return;
 	}

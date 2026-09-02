@@ -17,6 +17,13 @@ import { useUiStore } from "./ui";
 
 export interface TenderRow {
 	mode_of_payment: string;
+	/** Account/tender currency configured for the mode of payment. */
+	currency: string;
+	/** Invoice-currency value of one unit of tender currency. */
+	exchange_rate: number;
+	/** Amount physically received in the tender currency. */
+	tendered_amount: number;
+	/** Converted amount in the invoice currency. */
 	amount: number;
 	account?: string;
 	type?: string;
@@ -71,18 +78,47 @@ export const usePaymentsStore = defineStore("payments", () => {
 	/** Over-tender: change owed to the customer, or an over-refund. */
 	const change = computed(() => money(Math.max(sign.value * (paid.value - payable.value), 0)));
 	const settled = computed(() => sign.value * remaining.value <= 0);
+	const hasTender = computed(() => Math.abs(paid.value) > 0);
+	const isCreditSale = computed(
+		() =>
+			!cart.isReturn &&
+			!settled.value &&
+			!hasTender.value &&
+			!!session.profile?.posa_allow_credit_sale,
+	);
+	const isPartialPayment = computed(
+		() =>
+			!settled.value &&
+			hasTender.value &&
+			!!session.profile?.posa_allow_partial_payment,
+	);
+	const isCustomerCreditReturn = computed(
+		() =>
+			cart.isReturn &&
+			!hasTender.value &&
+			!!session.profile?.use_customer_credit,
+	);
 	const canSubmit = computed(
 		() =>
 			!cart.isEmpty &&
 			!!cart.customer &&
-			Math.abs(paid.value) > 0 &&
-			settled.value &&
+			(settled.value || isCreditSale.value || isPartialPayment.value || isCustomerCreditReturn.value) &&
 			!submitting.value,
 	);
+
+	const settlementMode = computed(() => {
+		if (isCustomerCreditReturn.value) return "customer_credit_return";
+		if (isCreditSale.value) return "credit";
+		if (isPartialPayment.value) return "partial";
+		return "settled";
+	});
 
 	function build() {
 		rows.value = session.paymentMethods.map((method: PaymentMethod) => ({
 			mode_of_payment: method.mode_of_payment,
+			currency: method.currency || session.currency,
+			exchange_rate: toNumber(method.exchange_rate) || 1,
+			tendered_amount: 0,
 			amount: 0,
 			account: method.account,
 			type: method.type,
@@ -113,6 +149,7 @@ export const usePaymentsStore = defineStore("payments", () => {
 			const rowsFromServer = (await api.availableCredit(
 				cart.customer,
 				session.companyName,
+				session.currency,
 			)) as CreditRow[];
 			credit.value = (rowsFromServer ?? []).map((row) => ({
 				...row,
@@ -162,15 +199,24 @@ export const usePaymentsStore = defineStore("payments", () => {
 	function setAmount(mode: string, value: number) {
 		const row = rows.value.find((entry) => entry.mode_of_payment === mode);
 		if (!row) return;
-		row.amount = money(sign.value * Math.max(Math.abs(toNumber(value)), 0));
+		row.tendered_amount = money(Math.max(Math.abs(toNumber(value)), 0));
+		row.amount = money(sign.value * row.tendered_amount * row.exchange_rate);
 		touched.value = true;
 	}
 
 	function addAmount(mode: string, delta: number) {
 		const row = rows.value.find((entry) => entry.mode_of_payment === mode);
 		if (!row) return;
-		const magnitude = Math.max(Math.abs(row.amount) + Math.abs(delta), 0);
-		row.amount = money(sign.value * magnitude);
+		row.tendered_amount = money(Math.max(row.tendered_amount + Math.abs(delta), 0));
+		row.amount = money(sign.value * row.tendered_amount * row.exchange_rate);
+		touched.value = true;
+	}
+
+	function setExchangeRate(mode: string, value: number) {
+		const row = rows.value.find((entry) => entry.mode_of_payment === mode);
+		if (!row || value <= 0) return;
+		row.exchange_rate = toNumber(value);
+		row.amount = money(sign.value * row.tendered_amount * row.exchange_rate);
 		touched.value = true;
 	}
 
@@ -185,10 +231,14 @@ export const usePaymentsStore = defineStore("payments", () => {
 		// Signed, not clamped: a return has to be able to tender a negative amount
 		// or the refund can never be completed.
 		target.amount = money(payable.value);
+		target.tendered_amount = money(Math.abs(payable.value) / target.exchange_rate);
 	}
 
 	function clear() {
-		for (const row of rows.value) row.amount = 0;
+		for (const row of rows.value) {
+			row.amount = 0;
+			row.tendered_amount = 0;
+		}
 	}
 
 	/** Offline-capable, and the thing that failed was the network rather than a rule. */
@@ -211,6 +261,9 @@ export const usePaymentsStore = defineStore("payments", () => {
 					account: row.account,
 					type: row.type,
 					default: row.default ? 1 : 0,
+					posa_tender_currency: row.currency,
+					posa_tender_amount: sign.value * row.tendered_amount,
+					posa_exchange_rate: row.exchange_rate,
 				})),
 			paid_amount: paid.value,
 			change_amount: change.value,
@@ -218,6 +271,7 @@ export const usePaymentsStore = defineStore("payments", () => {
 
 		const data: Record<string, unknown> = {
 			due_date: cart.dueDate ?? undefined,
+			settlement_mode: settlementMode.value,
 			redeemed_customer_credit: creditApplied.value || undefined,
 			customer_credit_dict: creditApplied.value
 				? credit.value.filter((row) => toNumber(row.credit_to_redeem) > 0)
@@ -350,6 +404,11 @@ export const usePaymentsStore = defineStore("payments", () => {
 		outstanding,
 		change,
 		settled,
+		hasTender,
+		isCreditSale,
+		isPartialPayment,
+		isCustomerCreditReturn,
+		settlementMode,
 		canSubmit,
 		build,
 		reset,
@@ -359,6 +418,7 @@ export const usePaymentsStore = defineStore("payments", () => {
 		clearCredit,
 		setAmount,
 		addAmount,
+		setExchangeRate,
 		tenderExact,
 		clear,
 		submit,

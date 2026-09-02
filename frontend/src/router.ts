@@ -10,6 +10,7 @@ const routes: RouteRecordRaw[] = [
 	{ path: "/sell", name: "sell", component: () => import("@/views/SellView.vue") },
 	{ path: "/shift", name: "shift", component: () => import("@/views/OpenShiftView.vue") },
 	{ path: "/close", name: "close", component: () => import("@/views/CloseShiftView.vue") },
+	{ path: "/payments", name: "payments", component: () => import("@/views/PaymentsView.vue") },
 	{ path: "/:pathMatch(.*)*", redirect: "/sell" },
 ];
 
@@ -25,6 +26,7 @@ router.beforeEach((to) => {
 	const session = useSessionStore();
 	const shiftOpen = session.ready;
 
-	if ((to.name === "sell" || to.name === "close") && !shiftOpen) return { name: "shift" };
+	if ((to.name === "sell" || to.name === "close" || to.name === "payments") && !shiftOpen)
+		return { name: "shift" };
 	if (to.name === "shift" && shiftOpen) return { name: "sell" };
 });

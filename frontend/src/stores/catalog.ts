@@ -77,18 +77,21 @@ export const useCatalogStore = defineStore("catalog", () => {
 			if (!options.force) {
 				// Show cached items immediately, then refresh underneath.
 				const cached = await readCachedItems(session.profile.name);
-				if (cached.length) {
+				const stamp = await cacheStamp("items", session.profile.name);
+				const ttl = Math.max(Number(session.profile.posa_offline_cache_ttl ?? 60), 1) * 60_000;
+				if (cached.length && stamp && Date.now() - stamp <= ttl) {
 					items.value = cached;
 					indexItems(cached);
 					loadedFromCache.value = true;
-					lastLoadedAt.value = await cacheStamp("items", session.profile.name);
+					lastLoadedAt.value = stamp;
 				}
 			}
 
 			const fresh = (await api.items({
 				pos_profile: session.profile,
 				price_list: session.priceList,
-				customer: undefined,
+				customer: session.pricingCustomer ?? undefined,
+				invoice_currency: session.currency,
 			})) as Item[];
 
 			items.value = fresh ?? [];
@@ -145,8 +148,10 @@ export const useCatalogStore = defineStore("catalog", () => {
 			serverResults.value = (await api.items({
 				pos_profile: session.profile,
 				price_list: session.priceList,
+				customer: session.pricingCustomer ?? undefined,
 				search_value: term,
 				item_group: activeGroup.value,
+				invoice_currency: session.currency,
 			})) as Item[];
 		} catch {
 			serverResults.value = null;
@@ -172,12 +177,22 @@ export const useCatalogStore = defineStore("catalog", () => {
 
 	/** Resolve a scanned code, preferring the local catalog before asking the server. */
 	async function resolveScan(lookup: string): Promise<Item | null> {
-		const local = items.value.find(
-			(item) =>
-				item.item_code === lookup ||
-				(item.item_barcode ?? []).some((barcode) => barcode.barcode === lookup),
-		);
-		if (local) return local;
+		const local = items.value.find((item) => item.item_code === lookup);
+		if (local) return { ...local };
+
+		const barcodeMatch = items.value
+			.map((item) => ({
+				item,
+				barcode: (item.item_barcode ?? []).find((barcode) => barcode.barcode === lookup),
+			}))
+			.find((match) => !!match.barcode);
+		if (barcodeMatch) {
+			return {
+				...barcodeMatch.item,
+				scanned_barcode: lookup,
+				scanned_uom: barcodeMatch.barcode?.posa_uom ?? null,
+			};
+		}
 
 		if (!session.serverReachable) return null;
 		try {
@@ -185,6 +200,8 @@ export const useCatalogStore = defineStore("catalog", () => {
 				pos_profile: session.profile,
 				code: lookup,
 				price_list: session.priceList,
+				customer: session.pricingCustomer ?? undefined,
+				invoice_currency: session.currency,
 			})) as Item) ?? null;
 		} catch {
 			return null;

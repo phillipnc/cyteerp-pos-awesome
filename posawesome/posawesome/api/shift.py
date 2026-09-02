@@ -13,6 +13,7 @@ from posawesome.posawesome.api.utils import (
 	precision_settings,
 	validate_shift_access,
 )
+from posawesome.posawesome.api.currency import build_currency_context
 
 # Wrapped rather than re-exported: the implementations live on the doctype, where
 # the desk form also reaches them, but they were written for the desk form's
@@ -199,6 +200,7 @@ def _shift_bootstrap(opening_shift):
 		},
 		"currency_symbol": frappe.db.get_value("Currency", profile.currency, "symbol") or profile.currency,
 		"pos_settings": _pos_settings(),
+		"currency_context": build_currency_context(profile),
 	}
 	payload.update(precision_settings())
 	return payload

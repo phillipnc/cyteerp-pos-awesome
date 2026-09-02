@@ -8,6 +8,17 @@ from posawesome.posawesome.api.payment_entry import create_payment_entry
 
 
 class MpesaPaymentRegister(Document):
+    def validate(self):
+        if not self.transid:
+            frappe.throw(_("Trans ID is required"))
+        duplicate = frappe.db.exists(
+            "Mpesa Payment Register", {"transid": self.transid, "name": ["!=", self.name]}
+        )
+        if duplicate:
+            frappe.throw(_("M-Pesa transaction {0} was already received").format(self.transid))
+        if self.transamount is not None and self.transamount <= 0:
+            frappe.throw(_("M-Pesa transaction amount must be greater than zero"))
+
     def before_insert(self):
         self.set_missing_values()
 

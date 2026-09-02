@@ -130,6 +130,7 @@ def check_coupon_code(coupon_code, customer=None, company=None):
                 "parenttype": "Sales Invoice",
                 "docstatus": 1,
                 "customer": customer,
+                "coupon": coupon.name,
             },
         )
         if count > 0:

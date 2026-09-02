@@ -9,7 +9,13 @@ import { computed, ref } from "vue";
 import { api, FrappeError, OfflineError } from "@/lib/api";
 import { configureFormatting, type RoundingMethod } from "@/lib/format";
 import { readMeta, writeMeta } from "@/lib/db";
-import type { OpeningShift, PaymentMethod, POSProfile } from "@/types";
+import type {
+	CurrencyContext,
+	CustomerInfo,
+	OpeningShift,
+	PaymentMethod,
+	POSProfile,
+} from "@/types";
 
 interface Bootstrap {
 	pos_opening_shift: OpeningShift;
@@ -23,6 +29,7 @@ interface Bootstrap {
 	date_format: string;
 	rounding_method?: string;
 	pos_settings?: Record<string, unknown>;
+	currency_context?: CurrencyContext;
 }
 
 export const useSessionStore = defineStore("session", () => {
@@ -31,6 +38,9 @@ export const useSessionStore = defineStore("session", () => {
 	const company = ref<Record<string, unknown> | null>(null);
 	const stockSettings = ref<{ allow_negative_stock: 0 | 1 }>({ allow_negative_stock: 0 });
 	const posSettings = ref<Record<string, unknown>>({});
+	const activePriceList = ref("");
+	const pricingCustomer = ref<string | null>(null);
+	const currencyContext = ref<CurrencyContext | null>(null);
 	const user = ref(window.posa_boot?.user ?? "");
 	const fullName = ref(window.posa_boot?.full_name ?? "");
 
@@ -44,15 +54,31 @@ export const useSessionStore = defineStore("session", () => {
 	 *  the OS thinks there is a network. */
 	const serverReachable = ref(navigator.onLine);
 
-	const currency = computed(() => profile.value?.currency ?? "USD");
+	const currency = computed(
+		() => currencyContext.value?.invoice_currency ?? profile.value?.currency ?? "USD",
+	);
+	const companyCurrency = computed(
+		() =>
+			currencyContext.value?.company_currency ??
+			(company.value?.default_currency as string | undefined) ??
+			currency.value,
+	);
+	const priceListCurrency = computed(
+		() => currencyContext.value?.price_list_currency ?? currency.value,
+	);
+	const conversionRate = computed(() => currencyContext.value?.conversion_rate ?? 1);
+	const plcConversionRate = computed(() => currencyContext.value?.plc_conversion_rate ?? 1);
+	const currencyOptions = computed(() => currencyContext.value?.allowed_currencies ?? [currency.value]);
 	const warehouse = computed(() => profile.value?.warehouse ?? "");
-	const priceList = computed(() => profile.value?.selling_price_list ?? "");
+	const priceList = computed(() => activePriceList.value || profile.value?.selling_price_list || "");
 	const companyName = computed(() => profile.value?.company ?? "");
 	const shiftName = computed(() => shift.value?.name ?? "");
 	const offlineEnabled = computed(() => !!profile.value?.posa_allow_offline_mode);
 	const canWorkOffline = computed(() => offlineEnabled.value && ready.value);
 
-	const paymentMethods = computed<PaymentMethod[]>(() => profile.value?.payments ?? []);
+	const paymentMethods = computed<PaymentMethod[]>(
+		() => currencyContext.value?.payment_methods ?? profile.value?.payments ?? [],
+	);
 	const defaultPaymentMethod = computed(
 		() => paymentMethods.value.find((method) => method.default) ?? paymentMethods.value[0] ?? null,
 	);
@@ -63,11 +89,15 @@ export const useSessionStore = defineStore("session", () => {
 		company.value = payload.company;
 		stockSettings.value = payload.stock_settings ?? { allow_negative_stock: 0 };
 		posSettings.value = payload.pos_settings ?? {};
+		activePriceList.value = payload.pos_profile.selling_price_list;
+		pricingCustomer.value = null;
+		currencyContext.value = payload.currency_context ?? null;
 
 		configureFormatting({
 			numberFormat: payload.number_format,
-			currency: payload.pos_profile.currency,
-			currencySymbol: payload.currency_symbol,
+			currency: currency.value,
+			currencySymbol:
+				currencyContext.value?.currency_symbols[currency.value] ?? payload.currency_symbol,
 			currencyPrecision: payload.currency_precision,
 			floatPrecision: payload.float_precision,
 			dateFormat: payload.date_format,
@@ -125,6 +155,44 @@ export const useSessionStore = defineStore("session", () => {
 		profile.value = null;
 		ready.value = false;
 		needsOpeningShift.value = true;
+		activePriceList.value = "";
+		pricingCustomer.value = null;
+		currencyContext.value = null;
+	}
+
+	/** Apply the customer's own price list, then the customer-group list, before
+	 * falling back to the POS Profile list. Returns true when the catalog must reload. */
+	function applyCustomerPricing(info: CustomerInfo | null): boolean {
+		const next =
+			info?.customer_price_list ||
+			info?.customer_group_price_list ||
+			profile.value?.selling_price_list ||
+			"";
+		const customer = info?.name ?? null;
+		const changed = activePriceList.value !== next || pricingCustomer.value !== customer;
+		activePriceList.value = next;
+		pricingCustomer.value = customer;
+		return changed;
+	}
+
+	function applyCurrencyContext(context: CurrencyContext) {
+		currencyContext.value = context;
+		configureFormatting({
+			currency: context.invoice_currency,
+			currencySymbol:
+				context.currency_symbols[context.invoice_currency] ?? context.invoice_currency,
+		});
+	}
+
+	async function refreshCurrencyContext(invoiceCurrency = currency.value) {
+		if (!profile.value) return null;
+		const context = (await api.currencyContext({
+			pos_profile: profile.value.name,
+			invoice_currency: invoiceCurrency,
+			price_list: priceList.value,
+		})) as CurrencyContext;
+		applyCurrencyContext(context);
+		return context;
 	}
 
 	function watchConnectivity() {
@@ -162,6 +230,9 @@ export const useSessionStore = defineStore("session", () => {
 		company,
 		stockSettings,
 		posSettings,
+		activePriceList,
+		pricingCustomer,
+		currencyContext,
 		user,
 		fullName,
 		ready,
@@ -171,6 +242,11 @@ export const useSessionStore = defineStore("session", () => {
 		online,
 		serverReachable,
 		currency,
+		companyCurrency,
+		priceListCurrency,
+		conversionRate,
+		plcConversionRate,
+		currencyOptions,
 		warehouse,
 		priceList,
 		companyName,
@@ -185,5 +261,8 @@ export const useSessionStore = defineStore("session", () => {
 		watchConnectivity,
 		probe,
 		applyBootstrap,
+		applyCustomerPricing,
+		applyCurrencyContext,
+		refreshCurrencyContext,
 	};
 });

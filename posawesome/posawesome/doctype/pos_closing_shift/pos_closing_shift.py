@@ -283,6 +283,10 @@ def submit_printed_invoices(pos_opening_shift):
             "posa_is_printed": 1,
         },
     )
-    for invoice in invoices_list:
-        invoice_doc = frappe.get_doc("Sales Invoice", invoice.name)
-        invoice_doc.submit()
+    if invoices_list:
+        frappe.throw(
+            _(
+                "{0} printed invoice(s) are still waiting for background submission. "
+                "Wait for the queue to finish before closing the shift."
+            ).format(len(invoices_list))
+        )

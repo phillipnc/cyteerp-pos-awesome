@@ -110,6 +110,13 @@ export const useSyncStore = defineStore("sync", () => {
 		data: Record<string, unknown>;
 		summary: QueuedInvoice["summary"];
 	}): Promise<string> {
+		await refresh();
+		const limit = Math.max(Number(session.profile?.posa_offline_max_queue ?? 200), 1);
+		if (outstanding.value >= limit) {
+			throw new Error(
+				`This terminal already has ${outstanding.value} unsent invoices. Reconnect and sync before taking another offline sale.`,
+			);
+		}
 		const now = Date.now();
 		const entry: QueuedInvoice = {
 			uuid: uid("offline"),

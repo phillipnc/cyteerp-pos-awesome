@@ -1,6 +1,8 @@
 # Copyright (c) 2021, Youssef Restom and contributors
 # For license information, please see license.txt
 
+from urllib.parse import quote
+
 import frappe, requests
 from frappe.model.document import Document
 from frappe.utils import get_request_site_address
@@ -9,6 +11,8 @@ from posawesome.posawesome.api.m_pesa import get_token
 
 class MpesaC2BRegisterURL(Document):
     def validate(self):
+        if not self.get_password("posa_callback_secret", raise_exception=False):
+            self.posa_callback_secret = frappe.generate_hash(length=40)
         sandbox_url = "https://sandbox.safaricom.co.ke"
         live_url = "https://api.safaricom.co.ke"
         mpesa_settings = frappe.get_doc("Mpesa Settings", self.mpesa_settings)
@@ -28,11 +32,18 @@ class MpesaC2BRegisterURL(Document):
             base_url=base_url,
         )
         site_url = get_request_site_address(True)
+        callback_token = quote(
+            self.get_password("posa_callback_secret", raise_exception=False), safe=""
+        )
         validation_url = (
-            site_url + "/api/method/posawesome.posawesome.api.m_pesa.validation"
+            site_url
+            + "/api/method/posawesome.posawesome.api.m_pesa.validation?token="
+            + callback_token
         )
         confirmation_url = (
-            site_url + "/api/method/posawesome.posawesome.api.m_pesa.confirmation"
+            site_url
+            + "/api/method/posawesome.posawesome.api.m_pesa.confirmation?token="
+            + callback_token
         )
         register_url = base_url + "/mpesa/c2b/v2/registerurl"
 

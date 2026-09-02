@@ -311,7 +311,7 @@ def make_address(args):
 
 
 @frappe.whitelist()
-def get_available_credit(customer, company):
+def get_available_credit(customer, company, currency=None):
 	"""Credit the customer can spend: unapplied returns plus advance payments."""
 	credit = []
 
@@ -320,11 +320,12 @@ def get_available_credit(customer, company):
 		filters={
 			"outstanding_amount": ["<", 0],
 			"docstatus": 1,
-			"is_return": 0,
+			"is_return": 1,
 			"customer": customer,
 			"company": company,
+			**({"currency": currency} if currency else {}),
 		},
-		fields=["name", "outstanding_amount"],
+		fields=["name", "outstanding_amount", "currency"],
 	):
 		credit.append(
 			{
@@ -332,6 +333,7 @@ def get_available_credit(customer, company):
 				"credit_origin": row.name,
 				"total_credit": -row.outstanding_amount,
 				"credit_to_redeem": 0,
+				"currency": row.currency,
 			}
 		)
 
@@ -343,8 +345,9 @@ def get_available_credit(customer, company):
 			"party": customer,
 			"company": company,
 			"docstatus": 1,
+			**({"paid_from_account_currency": currency} if currency else {}),
 		},
-		fields=["name", "unallocated_amount"],
+		fields=["name", "unallocated_amount", "paid_from_account_currency"],
 	):
 		credit.append(
 			{
@@ -352,6 +355,7 @@ def get_available_credit(customer, company):
 				"credit_origin": row.name,
 				"total_credit": row.unallocated_amount,
 				"credit_to_redeem": 0,
+				"currency": row.paid_from_account_currency,
 			}
 		)
 
