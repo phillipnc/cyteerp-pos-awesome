@@ -1,4 +1,4 @@
-# Contributing to POS Awesome
+# Contributing to CyteERP POS Awesome
 
 Thanks for helping make POS Awesome better! This document explains how to set
 up a development environment and get your contribution merged.
@@ -12,7 +12,7 @@ Be respectful. Keep criticism about code, not people.
 1. Fork the repository and clone your fork into your bench:
 
    ```bash
-   bench get-app https://github.com/your-fork/POSAWESOME-16.git
+   bench get-app https://github.com/your-account/cyteerp-pos-awesome.git
    ```
 
 2. Install frontend dependencies:
@@ -42,14 +42,17 @@ npm run typecheck   # vue-tsc, strict
 npm run build       # regenerates posawesome/public/posawesome and www/posawesome.html
 ```
 
-Python changes should pass `ruff check` with the settings in `pyproject.toml`.
+Python changes should pass `ruff check --select F .` and
+`python -m compileall -q posawesome`. The broader inherited lint backlog will
+be tightened incrementally without mixing formatting-only changes into feature
+ports.
 
 Commit the regenerated build output together with your source changes: the
 built bundle is tracked on purpose so fresh clones work without Node.
 
 ## How We Work
 
-- **Branch from `version-16`.** That is the active development branch.
+- **Branch from `develop`.** `main` is the production-ready branch.
 - **One topic per PR.** Small, focused PRs get reviewed fast.
 - **Commits:** short imperative subject line, blank line, then *why* if it is
   not obvious from the diff. No AI attribution trailers.
@@ -59,7 +62,7 @@ built bundle is tracked on purpose so fresh clones work without Node.
 
 ## Reporting Bugs
 
-Open a GitHub issue [here](https://github.com/WaleedAboHashima/POSAWESOME-16/issues/new/choose)
+Open a GitHub issue [here](https://github.com/phillipnc/cyteerp-pos-awesome/issues/new/choose)
 and include:
 
 - ERPNext / Frappe versions (`bench version`)
@@ -76,3 +79,15 @@ argue from the counter, not the conference room.
 
 By contributing you agree that your contributions are licensed under the GNU
 General Public License v3, same as the rest of the project.
+
+## Porting Upstream Features
+
+Do not copy an entire upstream branch or directory into this repository.
+Feature ports must:
+
+- Identify the upstream repository and commit in the pull request.
+- Retain applicable copyright and GPL notices.
+- Separate ERPNext v15 compatibility code from the v16 implementation.
+- Include tests for accounting, stock, permissions or offline behaviour.
+- Include migration and rollback notes when DocTypes or custom fields change.
+- Pass the frontend build and Python validation checks.

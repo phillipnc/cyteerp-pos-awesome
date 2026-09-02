@@ -1,127 +1,132 @@
 <div align="center">
-    <img src="https://frappecloud.com/files/pos.png" height="128">
-    <h2>POS AWESOME</h2>
+    <img src="https://frappecloud.com/files/pos.png" height="128" alt="POS Awesome">
+    <h1>CyteERP POS Awesome</h1>
+    <p>A CyteERP-maintained, ERPNext v16-focused distribution of POS Awesome.</p>
 </div>
 
-#### An open-source Point of Sale for [Erpnext](https://github.com/frappe/erpnext) using [Vue.js](https://github.com/vuejs/vue) and [Vuetify](https://github.com/vuetifyjs/vuetify)
+## Project status
 
----
+This repository starts from
+[`WaleedAboHashima/POSAWESOME-16`](https://github.com/WaleedAboHashima/POSAWESOME-16)
+and preserves its Git history. CyteERP is extending that v16 foundation with
+selected, reviewed ideas and features from
+[`defendicon/POS-Awesome-V15`](https://github.com/defendicon/POS-Awesome-V15).
 
-### Main Features
+The baseline POS is usable, but the larger CyteERP upgrade is being delivered
+in tested phases. See [ROADMAP.md](ROADMAP.md) before relying on a planned
+feature. Upstream lineage and integration rules are documented in
+[NOTICE.md](NOTICE.md).
 
-1. Supports Erpnext Version 16
-2. User friendly and provides a good user experience and speed of use
-3. The cashier has the option of either using list view or card view during sales transactions. Card view shows the images of the items
-4. Supports enqueue invoice submission after printing the receipt for faster processing
-5. Supports batch & serial numbering
-6. Supports batch based pricing
-7. Supports UOM specific barcode and pricing
-8. Supports sales of scale (weighted) products
-9. Ability to make returns from POS
-10. Supports Making returns for either cash or customer credit
-11. Supports using customer credit note for payment
-12. Supports credit sales
-13. Allows user to choose a due date for credit sales
-14. Supports customer loyalty points
-15. Shortcuts keys
-16. Supports Customer Discount
-17. Supports POS Offers
-18. Auto apply batches for bundle items
-19. Search and add items by Serial Number
-20. Create Sales Order from POS directly
-21. Supports template items with variants
-22. Supports multiple languages
-23. Supports Mpesa mobile payment
-24. POS Coupons
-25. Supports Referral Code
-26. Supports Customer and Customer Group price list
-27. Supports Sales Person
-28. Supports Delivery Charges
-29. Search and add items by Batch Number
-30. Accept new payments from customers against existing invoices
-31. Payments Reconciliation
+## Compatibility
 
----
+- Frappe Framework: `>=16.0.0,<17.0.0`
+- ERPNext: `>=16.0.0,<17.0.0`
+- Python: 3.10 or later
+- Frontend: Vue 3, Pinia, Vue Router, TypeScript, Tailwind CSS and Vite
 
-### How to Install
+ERPNext v15 is intentionally not supported by this distribution.
 
-#### Frappe Cloud:
+## Current features
 
-One-click installing available if you are hosting on FC from [here](https://frappecloud.com/marketplace/apps/posawesome)
+- Fast list and card-based selling
+- Batch and serial number handling
+- Batch-based pricing
+- UOM-specific barcodes and pricing
+- Scale and weighted products
+- Cash and customer-credit returns
+- Credit sales with due dates
+- Loyalty points, coupons and POS offers
+- Customer and customer-group price lists
+- Product bundles and item variants
+- Sales Orders from POS
+- Customer payments and payment reconciliation
+- M-Pesa support
+- Opening and closing shifts
+- Offline sale queue and synchronization
+- Receipt printing and a bundled POS print format
 
-#### Self Hosting:
+## Install
 
-1. `bench get-app branch version-16 https://github.com/WaleedAboHashima/POSAWESOME-16.git`
-2. `bench setup requirements`
-3. `bench build --app posawesome`
-4. `bench restart`
-5. `bench --site [your.site.name] install-app posawesome`
-6. `bench --site [your.site.name] migrate`
+From the root of your Frappe bench:
 
----
+```bash
+bench get-app --branch main https://github.com/phillipnc/cyteerp-pos-awesome.git
+bench setup requirements
+bench build --app posawesome
+bench restart
+bench --site your.site.name install-app posawesome
+bench --site your.site.name migrate
+```
 
-### Support
+For an existing installation:
 
-#### Frappe Cloud:
+```bash
+cd apps/posawesome
+git pull --ff-only
+cd ../..
+bench setup requirements
+bench build --app posawesome
+bench --site your.site.name migrate
+bench restart
+```
 
-If you are hosting on FC premium support is available [here](https://frappecloud.com/marketplace/apps/posawesome)
+Always test upgrades on a staging site and back up the database and files
+before migrating production.
 
-#### Self Hosting:
+## Development
 
-If you need premium support please email me [here](mailto:waleedsabry.abohashima@gmail.com)
+```bash
+cd frontend
+npm ci
+npm run typecheck
+npm run build
+```
 
-#### Community Support:
+Python changes should pass:
 
-Available in GitHub [discussions](https://github.com/WaleedAboHashima/POSAWESOME-16/discussions)
+```bash
+ruff check --select F .
+python -m compileall -q posawesome
+```
 
----
+The generated frontend bundle under `posawesome/public/posawesome` is tracked
+so a fresh Frappe installation can build and serve the application reliably.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch and review workflow.
 
-### New Features and Bug report:
+## Keyboard shortcuts
 
-- Please Create Github Issue from [here](https://github.com/WaleedAboHashima/POSAWESOME-16/issues/new/choose) after checking the existing issues
-- For paid features, you can email me [here](mailto:waleedsabry.abohashima@gmail.com)
+- `Ctrl/Cmd + S`: open payments
+- `Ctrl/Cmd + X`: submit payments
+- `Ctrl/Cmd + D`: remove the first item
+- `Ctrl/Cmd + A`: expand the first item
+- `Ctrl/Cmd + E`: focus the discount field
 
----
+## Reporting issues
 
-### How To Use:
+Use the repository
+[issue tracker](https://github.com/phillipnc/cyteerp-pos-awesome/issues) and
+include:
 
-[POS Awesome Wiki](https://github.com/WaleedAboHashima/POSAWESOME-16/wiki)
+- Exact Frappe, ERPNext and app versions
+- Browser and operating system
+- Steps to reproduce
+- Expected and actual results
+- Relevant browser-console or server logs
 
----
+## Upstream projects
 
-### Shortcuts:
+- Original POS Awesome project:
+  [`yrestom/POS-Awesome`](https://github.com/yrestom/POS-Awesome)
+- ERPNext v16 foundation:
+  [`WaleedAboHashima/POSAWESOME-16`](https://github.com/WaleedAboHashima/POSAWESOME-16)
+- Feature reference:
+  [`defendicon/POS-Awesome-V15`](https://github.com/defendicon/POS-Awesome-V15)
 
-- `CTRL or CMD + S` open payments
-- `CTRL or CMD + X` submit payments
-- `CTRL or CMD + D` remove first item from the top
-- `CTRL or CMD + A` expand first item from the top
-- `CTRL or CMD + E` focus on discount field
+CyteERP does not claim ownership of upstream contributions. When upstream code
+is ported, its copyright and licensing notices must be retained.
 
----
+## License
 
-### Dependencies:
-
-- [Frappe](https://github.com/frappe/frappe)
-- [Erpnext](https://github.com/frappe/erpnext)
-- [Vue.js](https://github.com/vuejs/vue)
-- [Vuetify.js](https://github.com/vuetifyjs/vuetify)
-
----
-
-### Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the
-development setup, the checks your PR must pass, and how we work.
-
-General guidelines follow Erpnext:
-
-1. [Issue Guidelines](https://github.com/frappe/erpnext/wiki/Issue-Guidelines)
-2. [Pull Request Requirements](https://github.com/frappe/erpnext/wiki/Contribution-Guidelines)
-
----
-
-### License
-
-GNU/General Public License (see [license.txt](https://github.com/WaleedAboHashima/POSAWESOME-16/blob/version-16/license.txt))
-
-The POS Awesome code is licensed as GNU General Public License (v3)
+This project is licensed under the GNU General Public License version 3. See
+[license.txt](license.txt). Modified and redistributed versions must continue
+to comply with the GPL-3.0 terms.

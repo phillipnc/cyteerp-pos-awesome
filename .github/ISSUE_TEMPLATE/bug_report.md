@@ -16,9 +16,9 @@ A properly detailed bug report can save a LOT of time and help fix issues as soo
 
 ### Versions
 
-- Frappe: <!-- ex: V12.13.0 -->
-- Erpnext: <!-- ex: V13.14.0 -->
-- POS Awesome: <!-- ex: V01.0.2 -->
+- Frappe: <!-- ex: v16.x.x -->
+- ERPNext: <!-- ex: v16.x.x -->
+- CyteERP POS Awesome: <!-- ex: v16.0.0 -->
 
 ### Stacktrace / full error message
 

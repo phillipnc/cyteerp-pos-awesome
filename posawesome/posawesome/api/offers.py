@@ -1,7 +1,6 @@
 """POS Offers, coupons and referral rewards."""
 
 import frappe
-from frappe import _
 from frappe.utils import nowdate
 
 from posawesome.posawesome.doctype.pos_coupon.pos_coupon import check_coupon_code

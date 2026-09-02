@@ -2,12 +2,19 @@
 name = "posawesome"
 authors = [
     { name = "WaleedAboHashima", email = "waleedsabry.abohashima@gmail.com" },
+    { name = "CyteERP Systems" },
 ]
-description = "POS Awesome — a modern point of sale for ERPNext"
+description = "CyteERP-maintained POS Awesome distribution for ERPNext v16"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/phillipnc/cyteerp-pos-awesome"
+Repository = "https://github.com/phillipnc/cyteerp-pos-awesome.git"
+"Bug Tracker" = "https://github.com/phillipnc/cyteerp-pos-awesome/issues"
+"Upstream v16" = "https://github.com/WaleedAboHashima/POSAWESOME-16"
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]

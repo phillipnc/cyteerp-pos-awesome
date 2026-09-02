@@ -2,7 +2,6 @@
 # For license information, please see license.txt
 
 import frappe, requests
-from frappe import _
 from requests.auth import HTTPBasicAuth
 import json
 

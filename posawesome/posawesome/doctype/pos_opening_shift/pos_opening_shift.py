@@ -4,7 +4,6 @@
 import frappe
 from frappe import _
 from frappe.utils import cint
-from frappe.model.document import Document
 from posawesome.posawesome.api.status_updater import StatusUpdater
 
 
