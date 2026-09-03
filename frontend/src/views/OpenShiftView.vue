@@ -3,7 +3,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { Loader2, PlayCircle, Store, Wallet } from "lucide-vue-next";
 import { api } from "@/lib/api";
-import { toNumber } from "@/lib/format";
+import { formatCurrency, toNumber } from "@/lib/format";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore } from "@/stores/ui";
 import type { PaymentMethod } from "@/types";
@@ -32,6 +32,7 @@ const methods = computed(() =>
 	(data.value?.payments_method ?? []).filter((entry) => entry.parent === profile.value),
 );
 const canStart = computed(() => !!company.value && !!profile.value && !starting.value);
+const methodKey = (method: PaymentMethod) => `${method.mode_of_payment}::${method.currency}`;
 
 onMounted(async () => {
 	try {
@@ -53,7 +54,7 @@ watch([company, profiles], () => {
 
 watch(methods, (list) => {
 	const next: Record<string, number> = {};
-	for (const method of list) next[method.mode_of_payment] = balances.value[method.mode_of_payment] ?? 0;
+	for (const method of list) next[methodKey(method)] = balances.value[methodKey(method)] ?? 0;
 	balances.value = next;
 });
 
@@ -64,11 +65,10 @@ async function start() {
 		await session.openShift({
 			pos_profile: profile.value,
 			company: company.value,
-			// POS Opening Shift Detail has exactly two fields: mode_of_payment and
-			// amount. Anything else is dropped silently and the float opens at zero.
 			balance_details: methods.value.map((method) => ({
 				mode_of_payment: method.mode_of_payment,
-				amount: toNumber(balances.value[method.mode_of_payment]),
+				currency: method.currency,
+				amount: toNumber(balances.value[methodKey(method)]),
 			})),
 		});
 		ui.success("Shift open", `${profile.value} is ready.`);
@@ -140,20 +140,24 @@ async function start() {
 					<div class="space-y-2">
 						<div
 							v-for="method in methods"
-							:key="method.mode_of_payment"
+							:key="methodKey(method)"
 							class="flex items-center gap-2 rounded-card border border-line bg-surface-2 p-2"
 						>
-							<label class="min-w-0 flex-1 truncate text-sm" :for="`open-${method.mode_of_payment}`">
+							<label class="min-w-0 flex-1 truncate text-sm" :for="`open-${methodKey(method)}`">
 								{{ method.mode_of_payment }}
+								<span class="ms-1 text-xs text-subtle">{{ method.currency }}</span>
 							</label>
 							<input
-								:id="`open-${method.mode_of_payment}`"
-								v-model.number="balances[method.mode_of_payment]"
+								:id="`open-${methodKey(method)}`"
+								v-model.number="balances[methodKey(method)]"
 								type="text"
 								inputmode="decimal"
 								placeholder="0.00"
 								class="h-9 w-28 rounded-card border-line bg-surface text-right text-sm font-semibold tnum focus:border-accent focus:ring-0"
 							/>
+							<span class="sr-only">
+								{{ formatCurrency(balances[methodKey(method)], method.currency) }}
+							</span>
 						</div>
 					</div>
 				</div>

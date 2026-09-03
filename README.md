@@ -40,6 +40,11 @@ ERPNext v15 is intentionally not supported by this distribution.
 - Product bundles and item variants
 - Sales Orders from POS
 - Customer payments and payment reconciliation
+- Selectable invoice currencies and mixed-currency tender
+- Currency-separated shift and drawer reconciliation
+- Multi-currency sales, tender and Zimbabwe fiscal reports
+- POS workspace KPIs, sales trends and fiscal-status dashboard
+- Direct ZIMRA FDMS and approved-provider fiscalisation adapters
 - M-Pesa support
 - Opening and closing shifts
 - Offline sale queue and synchronization

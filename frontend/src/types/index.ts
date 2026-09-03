@@ -320,7 +320,14 @@ export interface OpeningShift {
 	period_start_date: string;
 	user: string;
 	status: string;
-	balance_details: { mode_of_payment: string; opening_amount: number; amount?: number }[];
+	balance_details: {
+		mode_of_payment: string;
+		currency: string;
+		opening_amount?: number;
+		amount?: number;
+		company_exchange_rate?: number;
+		company_amount?: number;
+	}[];
 }
 
 export interface ShiftBootstrap {
@@ -367,11 +374,40 @@ export interface ShiftAnalytics {
 	net_total: number;
 	grand_total: number;
 	total_returned: number;
+	net_sales: number;
 	average_basket: number;
 	total_qty: number;
 	total_discount: number;
-	payment_mix: { mode_of_payment: string; amount: number }[];
-	top_items: { item_code: string; item_name: string; qty: number; amount: number }[];
+	payment_mix: {
+		key: string;
+		mode_of_payment: string;
+		currency: string;
+		opening_amount: number;
+		transaction_amount: number;
+		expected_amount: number;
+		company_opening_amount: number;
+		company_transaction_amount: number;
+		company_expected_amount: number;
+		amount: number;
+	}[];
+	currency_totals: {
+		currency: string;
+		invoice_count: number;
+		return_count: number;
+		sales: number;
+		returns: number;
+		net_sales: number;
+		net_total: number;
+		discount: number;
+	}[];
+	top_items: {
+		item_code: string;
+		item_name: string;
+		stock_uom?: string;
+		qty: number;
+		amount: number;
+	}[];
 	hourly: { hour: number; amount: number; count: number }[];
 	currency: string;
+	company_currency: string;
 }

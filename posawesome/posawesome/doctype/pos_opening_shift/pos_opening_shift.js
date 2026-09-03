@@ -43,18 +43,39 @@ frappe.ui.form.on('POS Opening Shift', {
 		frm.trigger('set_posting_date_read_only');
 	},
 
-	pos_profile: (frm) => {
+	async pos_profile(frm) {
 		if (frm.doc.pos_profile) {
-			frappe.db.get_doc("POS Profile", frm.doc.pos_profile)
-				.then(({ payments }) => {
-					if (payments.length) {
-						frm.doc.balance_details = [];
-						payments.forEach(({ mode_of_payment }) => {
-							frm.add_child("balance_details", { mode_of_payment });
-						})
-						frm.refresh_field("balance_details");
-					}
+			const response = await frappe.call({
+				method: "posawesome.posawesome.api.currency.get_currency_context",
+				args: {
+					pos_profile: frm.doc.pos_profile,
+					posting_date: frm.doc.posting_date,
+				},
+			});
+			const context = response.message || {};
+			frm.clear_table("balance_details");
+			for (const method of context.payment_methods || []) {
+				frm.add_child("balance_details", {
+					mode_of_payment: method.mode_of_payment,
+					currency: method.currency,
+					company_exchange_rate:
+						(flt(method.exchange_rate) || 1) * (flt(context.conversion_rate) || 1),
+					company_amount: 0,
 				});
+			}
+			frm.refresh_field("balance_details");
 		}
-	}
+	},
+});
+
+frappe.ui.form.on("POS Opening Shift Detail", {
+	amount(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		frappe.model.set_value(
+			cdt,
+			cdn,
+			"company_amount",
+			flt(row.amount) * (flt(row.company_exchange_rate) || 1),
+		);
+	},
 });

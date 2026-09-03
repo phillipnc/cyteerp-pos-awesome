@@ -304,6 +304,7 @@ V16_CUSTOM_FIELDS = {
 
 def after_install():
 	create_custom_fields(V16_CUSTOM_FIELDS, ignore_validate=True)
+	_backfill_reporting_fields()
 	_add_database_constraints()
 	_sync_pos_print_format()
 	frappe.db.commit()
@@ -311,6 +312,7 @@ def after_install():
 
 def after_migrate():
 	create_custom_fields(V16_CUSTOM_FIELDS, ignore_validate=True)
+	_backfill_reporting_fields()
 	_add_database_constraints()
 	_sync_pos_print_format()
 	frappe.db.commit()
@@ -322,6 +324,138 @@ def _add_database_constraints():
 	# idempotent. If legacy duplicate IDs exist, migration stops instead of silently
 	# leaving callback replay protection disabled.
 	frappe.db.add_unique("Mpesa Payment Register", ["transid"], "uniq_mpesa_transid")
+
+
+def _backfill_reporting_fields():
+	"""Preserve legacy single-currency shift rows after adding currency metadata."""
+	for row in frappe.get_all(
+		"POS Opening Shift Detail",
+		fields=[
+			"name",
+			"parent",
+			"currency",
+			"amount",
+			"company_exchange_rate",
+			"company_amount",
+		],
+		limit_page_length=0,
+		ignore_permissions=True,
+	):
+		if row.currency and row.company_exchange_rate and row.company_amount is not None:
+			continue
+		company = frappe.get_cached_value("POS Opening Shift", row.parent, "company")
+		currency = frappe.get_cached_value("Company", company, "default_currency")
+		frappe.db.set_value(
+			"POS Opening Shift Detail",
+			row.name,
+			{
+				"currency": row.currency or currency,
+				"company_exchange_rate": row.company_exchange_rate or 1,
+				"company_amount": (
+					row.company_amount
+					if row.company_amount is not None
+					else row.amount or 0
+				),
+			},
+			update_modified=False,
+		)
+
+	for row in frappe.get_all(
+		"POS Closing Shift Detail",
+		fields=[
+			"name",
+			"parent",
+			"currency",
+			"opening_amount",
+			"closing_amount",
+			"expected_amount",
+			"difference",
+			"company_exchange_rate",
+			"company_opening_amount",
+			"company_closing_amount",
+			"company_expected_amount",
+			"company_difference",
+		],
+		limit_page_length=0,
+		ignore_permissions=True,
+	):
+		if row.currency and row.company_exchange_rate:
+			continue
+		company = frappe.get_cached_value("POS Closing Shift", row.parent, "company")
+		currency = frappe.get_cached_value("Company", company, "default_currency")
+		frappe.db.set_value(
+			"POS Closing Shift Detail",
+			row.name,
+			{
+				"currency": row.currency or currency,
+				"company_exchange_rate": row.company_exchange_rate or 1,
+				"company_opening_amount": row.opening_amount or 0,
+				"company_closing_amount": row.closing_amount or 0,
+				"company_expected_amount": row.expected_amount or 0,
+				"company_difference": row.difference or 0,
+			},
+			update_modified=False,
+		)
+
+	for row in frappe.get_all(
+		"Sales Invoice Reference",
+		fields=["name", "sales_invoice", "currency", "grand_total", "base_grand_total"],
+		limit_page_length=0,
+		ignore_permissions=True,
+	):
+		if row.currency and row.base_grand_total is not None:
+			continue
+		invoice = frappe.get_cached_value(
+			"Sales Invoice",
+			row.sales_invoice,
+			["currency", "grand_total", "base_grand_total"],
+			as_dict=True,
+		)
+		if invoice:
+			frappe.db.set_value(
+				"Sales Invoice Reference",
+				row.name,
+				{
+					"currency": row.currency or invoice.currency,
+					"grand_total": row.grand_total or invoice.grand_total,
+					"base_grand_total": (
+						row.base_grand_total
+						if row.base_grand_total is not None
+						else invoice.base_grand_total
+					),
+				},
+				update_modified=False,
+			)
+
+	for row in frappe.get_all(
+		"POS Payment Entry Reference",
+		fields=["name", "payment_entry", "currency", "paid_amount", "base_paid_amount"],
+		limit_page_length=0,
+		ignore_permissions=True,
+	):
+		if row.currency and row.base_paid_amount is not None:
+			continue
+		payment = frappe.get_cached_value(
+			"Payment Entry",
+			row.payment_entry,
+			["paid_to_account_currency", "received_amount", "base_received_amount"],
+			as_dict=True,
+		)
+		if payment:
+			frappe.db.set_value(
+				"POS Payment Entry Reference",
+				row.name,
+				{
+					"currency": row.currency or payment.paid_to_account_currency,
+					"paid_amount": row.paid_amount or payment.received_amount,
+					"base_paid_amount": (
+						row.base_paid_amount
+						if row.base_paid_amount is not None
+						else payment.base_received_amount
+					),
+				},
+				update_modified=False,
+			)
 
 
 def _sync_pos_print_format():

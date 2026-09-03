@@ -32,7 +32,7 @@ onMounted(async () => {
 	}
 	try {
 		stats.value = (await api.shiftAnalytics(session.shiftName)) as ShiftAnalytics;
-		for (const row of stats.value?.payment_mix ?? []) counted.value[row.mode_of_payment] = row.amount;
+		for (const row of stats.value?.payment_mix ?? []) counted.value[row.key] = row.expected_amount;
 	} catch (error) {
 		ui.fail("Could not load the shift summary", error instanceof Error ? error.message : String(error));
 	} finally {
@@ -40,8 +40,8 @@ onMounted(async () => {
 	}
 });
 
-function variance(mode: string, expected: number) {
-	return toNumber(counted.value[mode]) - expected;
+function variance(key: string, expected: number) {
+	return toNumber(counted.value[key]) - expected;
 }
 
 async function close() {
@@ -52,7 +52,9 @@ async function close() {
 		const rows = (draft.payment_reconciliation as Record<string, unknown>[] | undefined) ?? [];
 		for (const row of rows) {
 			const mode = row.mode_of_payment as string;
-			if (counted.value[mode] !== undefined) row.closing_amount = toNumber(counted.value[mode]);
+			const currency = row.currency as string;
+			const key = `${mode}::${currency}`;
+			if (counted.value[key] !== undefined) row.closing_amount = toNumber(counted.value[key]);
 		}
 		await api.submitClosingShift(draft);
 		ui.success("Shift closed");
@@ -80,7 +82,7 @@ async function close() {
 				</button>
 				<h1 class="text-base font-semibold">Close shift</h1>
 				<span v-if="stats" class="ml-auto text-xs text-subtle">
-					Opened {{ formatDateTime(stats.opened_at) }}
+					{{ stats.company_currency }} company totals · Opened {{ formatDateTime(stats.opened_at) }}
 				</span>
 			</div>
 
@@ -97,23 +99,63 @@ async function close() {
 				<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 					<div class="panel p-4">
 						<p class="text-[11px] font-semibold uppercase tracking-wide text-subtle">Sales</p>
-						<p class="mt-1 text-2xl font-bold tnum">{{ formatCurrency(stats.grand_total) }}</p>
+						<p class="mt-1 text-2xl font-bold tnum">
+							{{ formatCurrency(stats.grand_total, stats.company_currency) }}
+						</p>
 						<p class="text-xs text-muted">{{ stats.invoice_count }} invoices</p>
 					</div>
 					<div class="panel p-4">
 						<p class="text-[11px] font-semibold uppercase tracking-wide text-subtle">Returns</p>
-						<p class="mt-1 text-2xl font-bold tnum text-danger">{{ formatCurrency(stats.total_returned) }}</p>
+						<p class="mt-1 text-2xl font-bold tnum text-danger">
+							{{ formatCurrency(stats.total_returned, stats.company_currency) }}
+						</p>
 						<p class="text-xs text-muted">{{ stats.return_count }} returns</p>
 					</div>
 					<div class="panel p-4">
 						<p class="text-[11px] font-semibold uppercase tracking-wide text-subtle">Average basket</p>
-						<p class="mt-1 text-2xl font-bold tnum">{{ formatCurrency(stats.average_basket) }}</p>
-						<p class="text-xs text-muted">{{ formatFloat(stats.total_qty) }} items sold</p>
+						<p class="mt-1 text-2xl font-bold tnum">
+							{{ formatCurrency(stats.average_basket, stats.company_currency) }}
+						</p>
+						<p class="text-xs text-muted">{{ formatFloat(stats.total_qty) }} stock units sold</p>
 					</div>
 					<div class="panel p-4">
 						<p class="text-[11px] font-semibold uppercase tracking-wide text-subtle">Discounts</p>
-						<p class="mt-1 text-2xl font-bold tnum text-warning">{{ formatCurrency(stats.total_discount) }}</p>
+						<p class="mt-1 text-2xl font-bold tnum text-warning">
+							{{ formatCurrency(stats.total_discount, stats.company_currency) }}
+						</p>
 						<p v-if="peakHour" class="text-xs text-muted">Busiest {{ peakHour.hour }}:00</p>
+					</div>
+				</div>
+
+				<!-- Invoice-currency breakdown -->
+				<div class="panel overflow-hidden">
+					<header class="border-b border-line px-4 py-3">
+						<h2 class="text-sm font-semibold">Sales by invoice currency</h2>
+						<p class="mt-0.5 text-xs text-muted">
+							Currencies remain separate; the KPI cards above use {{ stats.company_currency }} base values.
+						</p>
+					</header>
+					<div class="divide-y divide-line">
+						<div
+							v-for="row in stats.currency_totals"
+							:key="row.currency"
+							class="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-4 py-2.5 text-sm"
+						>
+							<div>
+								<p class="font-semibold">{{ row.currency }}</p>
+								<p class="text-xs text-muted">
+									{{ row.invoice_count }} sales · {{ row.return_count }} returns
+								</p>
+							</div>
+							<div class="text-right">
+								<p class="text-xs text-subtle">Sales</p>
+								<p class="font-semibold tnum">{{ formatCurrency(row.sales, row.currency) }}</p>
+							</div>
+							<div class="text-right">
+								<p class="text-xs text-subtle">Net after returns</p>
+								<p class="font-semibold tnum">{{ formatCurrency(row.net_sales, row.currency) }}</p>
+							</div>
+						</div>
 					</div>
 				</div>
 
@@ -126,30 +168,38 @@ async function close() {
 					<div class="divide-y divide-line">
 						<div
 							v-for="row in stats.payment_mix"
-							:key="row.mode_of_payment"
+							:key="row.key"
 							class="flex items-center gap-3 px-4 py-2.5"
 						>
-							<span class="min-w-0 flex-1 truncate text-sm">{{ row.mode_of_payment }}</span>
-							<span class="w-28 text-right text-sm tnum text-muted">{{ formatCurrency(row.amount) }}</span>
+							<span class="min-w-0 flex-1 text-sm">
+								<span class="block truncate">{{ row.mode_of_payment }} · {{ row.currency }}</span>
+								<span class="block text-[11px] text-subtle">
+									Open {{ formatCurrency(row.opening_amount, row.currency) }} · movement
+									{{ formatCurrency(row.transaction_amount, row.currency) }}
+								</span>
+							</span>
+							<span class="w-28 text-right text-sm tnum text-muted">
+								{{ formatCurrency(row.expected_amount, row.currency) }}
+							</span>
 							<input
-								v-model.number="counted[row.mode_of_payment]"
+								v-model.number="counted[row.key]"
 								type="text"
 								inputmode="decimal"
 								class="h-9 w-28 rounded-card border-line bg-surface-2 text-right text-sm font-semibold tnum focus:border-accent focus:ring-0"
-								:aria-label="`Counted ${row.mode_of_payment}`"
+								:aria-label="`Counted ${row.mode_of_payment} in ${row.currency}`"
 							/>
 							<span
 								class="w-24 text-right text-xs font-semibold tnum"
 								:class="
-									variance(row.mode_of_payment, row.amount) === 0
+									variance(row.key, row.expected_amount) === 0
 										? 'text-subtle'
-										: variance(row.mode_of_payment, row.amount) > 0
+										: variance(row.key, row.expected_amount) > 0
 											? 'text-success'
 											: 'text-danger'
 								"
 							>
-								{{ variance(row.mode_of_payment, row.amount) > 0 ? "+" : ""
-								}}{{ formatCurrency(variance(row.mode_of_payment, row.amount)) }}
+								{{ variance(row.key, row.expected_amount) > 0 ? "+" : ""
+								}}{{ formatCurrency(variance(row.key, row.expected_amount), row.currency) }}
 							</span>
 						</div>
 					</div>
@@ -168,8 +218,12 @@ async function close() {
 							class="flex items-center gap-3 px-4 py-2 text-sm"
 						>
 							<span class="min-w-0 flex-1 truncate">{{ item.item_name }}</span>
-							<span class="shrink-0 text-xs tnum text-subtle">{{ formatFloat(item.qty) }}×</span>
-							<span class="w-24 shrink-0 text-right tnum font-semibold">{{ formatCurrency(item.amount) }}</span>
+							<span class="shrink-0 text-xs tnum text-subtle">
+								{{ formatFloat(item.qty) }} {{ item.stock_uom || "units" }}
+							</span>
+							<span class="w-24 shrink-0 text-right tnum font-semibold">
+								{{ formatCurrency(item.amount, stats.company_currency) }}
+							</span>
 						</li>
 					</ul>
 				</div>

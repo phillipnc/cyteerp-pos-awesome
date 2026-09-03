@@ -38,14 +38,26 @@
 								<thead>
 									<tr>
 										<th class="text-left">{{ _("Mode of Payment") }}</th>
-										<th class="text-right">{{ _("Amount") }}</th>
+										<th class="text-left">{{ _("Currency") }}</th>
+										<th class="text-right">{{ _("Opening") }}</th>
+										<th class="text-right">{{ _("Movement") }}</th>
+										<th class="text-right">{{ _("Expected") }}</th>
+										<th class="text-right">{{ _("Counted") }}</th>
+										<th class="text-right">{{ _("Difference") }}</th>
+										<th class="text-right">{{ _("Company Equivalent") }}</th>
 									</tr>
 								</thead>
 								<tbody>
 								{% for d in data.payment_reconciliation %}
 									<tr>
 										<td class="text-left">{{ d.mode_of_payment }}</td>
-										<td class='text-right'> {{ frappe.utils.fmt_money(d.expected_amount - d.opening_amount, currency=currency) }}</td>
+										<td class="text-left">{{ d.currency }}</td>
+										<td class='text-right'>{{ frappe.utils.fmt_money(d.opening_amount, currency=d.currency) }}</td>
+										<td class='text-right'>{{ frappe.utils.fmt_money(d.expected_amount - d.opening_amount, currency=d.currency) }}</td>
+										<td class='text-right'>{{ frappe.utils.fmt_money(d.expected_amount, currency=d.currency) }}</td>
+										<td class='text-right'>{{ frappe.utils.fmt_money(d.closing_amount, currency=d.currency) }}</td>
+										<td class='text-right'>{{ frappe.utils.fmt_money(d.difference, currency=d.currency) }}</td>
+										<td class='text-right'>{{ frappe.utils.fmt_money(d.company_expected_amount, currency=currency) }}</td>
 									</tr>
 								{% endfor %}
 							</tbody>

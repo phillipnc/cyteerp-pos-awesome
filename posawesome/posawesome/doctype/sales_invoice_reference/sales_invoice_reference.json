@@ -9,7 +9,9 @@
   "posting_date",
   "column_break_3",
   "customer",
-  "grand_total"
+  "currency",
+  "grand_total",
+  "base_grand_total"
  ],
  "fields": [
   {
@@ -43,11 +45,29 @@
    "reqd": 1
   },
   {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
    "fetch_from": "pos_invoice.grand_total",
    "fieldname": "grand_total",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Amount",
+   "options": "currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "base_grand_total",
+   "fieldtype": "Currency",
+   "label": "Company Currency Amount",
+   "options": "Company:company:default_currency",
+   "read_only": 1,
    "reqd": 1
   }
  ],

@@ -6,7 +6,10 @@
  "engine": "InnoDB",
  "field_order": [
   "mode_of_payment",
-  "amount"
+  "currency",
+  "amount",
+  "company_exchange_rate",
+  "company_amount"
  ],
  "fields": [
   {
@@ -18,12 +21,37 @@
    "reqd": 1
   },
   {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
    "default": "0",
    "fieldname": "amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Opening Amount",
-   "options": "company:company_currency",
+   "options": "currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Company Exchange Rate",
+   "precision": "9",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_amount",
+   "fieldtype": "Currency",
+   "label": "Company Currency Amount",
+   "options": "Company:company:default_currency",
+   "read_only": 1,
    "reqd": 1
   }
  ],

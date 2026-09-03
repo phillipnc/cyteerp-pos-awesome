@@ -6,10 +6,16 @@
  "engine": "InnoDB",
  "field_order": [
   "mode_of_payment",
+  "currency",
+  "company_exchange_rate",
   "opening_amount",
   "closing_amount",
   "expected_amount",
-  "difference"
+  "difference",
+  "company_opening_amount",
+  "company_closing_amount",
+  "company_expected_amount",
+  "company_difference"
  ],
  "fields": [
   {
@@ -21,11 +27,28 @@
    "reqd": 1
   },
   {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Closing Exchange Rate",
+   "precision": "9",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
    "fieldname": "opening_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Opening Amount",
-   "options": "company:company_currency",
+   "options": "currency",
    "read_only": 1,
    "reqd": 1
   },
@@ -34,7 +57,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Closing Amount",
-   "options": "company:company_currency",
+   "options": "currency",
    "reqd": 1
   },
   {
@@ -42,7 +65,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Expected Amount",
-   "options": "company:company_currency",
+   "options": "currency",
    "read_only": 1,
    "reqd": 1
   },
@@ -51,7 +74,35 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Difference",
-   "options": "company:company_currency",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company_opening_amount",
+   "fieldtype": "Currency",
+   "label": "Opening Amount (Company Currency)",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company_closing_amount",
+   "fieldtype": "Currency",
+   "label": "Closing Amount (Company Currency)",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company_expected_amount",
+   "fieldtype": "Currency",
+   "label": "Expected Amount (Company Currency)",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company_difference",
+   "fieldtype": "Currency",
+   "label": "Difference (Company Currency)",
+   "options": "Company:company:default_currency",
    "read_only": 1
   }
  ],

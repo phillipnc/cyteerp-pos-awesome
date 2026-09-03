@@ -26,6 +26,40 @@ to each registered taxpayer and deployment.
 The invoice retains one accounting currency. Each payment row records the tender
 currency, physical tender amount, and tender-to-invoice exchange rate.
 
+Opening and closing shift amounts are also stored per Mode of Payment and physical
+currency. Company-currency equivalents are recorded separately. Existing
+single-currency shift rows are migrated as company-currency values.
+
+The close-shift screen treats change as physical cash paid in the invoice currency,
+which matches the currency used by the SPA when it displays change to the cashier.
+If a deployment returns change in a different currency, complete that exchange as a
+separate controlled cash movement rather than altering the invoice tender rows.
+
+## Reports and dashboard
+
+The **POS Awesome** workspace provides:
+
+- Company-currency number cards for today's POS sales.
+- Today's POS return count.
+- Pending and failed fiscal receipt counts.
+- A 30-day POS sales chart using `base_grand_total`.
+- A fiscal receipt status chart.
+
+The following standard Script Reports are installed:
+
+- **POS Multi Currency Sales** keeps USD, ZWG, ZAR, and other invoice currencies
+  separate and shows ERPNext company-currency equivalents alongside them.
+- **POS Tender Reconciliation** groups opening float, tender movements, change,
+  returns, and customer Payment Entries by Mode of Payment and physical currency.
+- **Zimbabwe Fiscal Receipt Status** lists accepted, pending, failed, and
+  unprocessed receipts, including device/day/global numbers and the error backlog.
+- **Zimbabwe Fiscal Day Summary** groups fiscal invoices and credit notes by device,
+  fiscal day, receipt currency, mapped ZIMRA tax ID, and tax percentage.
+
+Do not add invoice-currency totals from different currencies. Use either the
+currency-specific columns or the explicitly labelled company-currency columns.
+The dashboard's cross-currency KPIs use ERPNext `base_*` values.
+
 ## Customer accounts and credit
 
 - Customer and Customer Group default Price Lists are applied before the POS Profile
@@ -109,6 +143,10 @@ Then verify, with test customers and stock:
 8. M-Pesa callback re-registration with the generated callback token.
 9. FDMS open day, invoice, credit note, QR verification, status refresh, and close day.
 10. Stock Ledger, General Ledger, Payment Ledger, receivable balances, and shift totals.
+11. Each report against the same invoices, tender rows, tax IDs, and fiscal-day
+    counters used in the test transactions.
+12. Opening and closing drawer counts independently for every Mode of Payment and
+    physical currency.
 
 Production use requires successful ERPNext integration testing and acceptance against
 the taxpayer's registered ZIMRA device or approved provider. Passing the repository's
