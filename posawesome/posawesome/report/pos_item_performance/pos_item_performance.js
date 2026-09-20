@@ -1,7 +1,7 @@
 // Copyright (c) 2026, CyteERP contributors
 // License: GPL-3.0
 
-frappe.query_reports["POS Tender Reconciliation"] = {
+frappe.query_reports["POS Item Performance"] = {
 	filters: [
 		{
 			fieldname: "company",
@@ -26,6 +26,14 @@ frappe.query_reports["POS Tender Reconciliation"] = {
 			reqd: 1,
 		},
 		{
+			fieldname: "group_by",
+			label: __("Group By"),
+			fieldtype: "Select",
+			options: "Item\nItem Group\nBrand",
+			default: "Item",
+			reqd: 1,
+		},
+		{
 			fieldname: "pos_profile",
 			label: __("POS Profile"),
 			fieldtype: "Link",
@@ -33,31 +41,6 @@ frappe.query_reports["POS Tender Reconciliation"] = {
 			get_query: () => ({
 				filters: { company: frappe.query_report.get_filter_value("company") },
 			}),
-		},
-		{
-			fieldname: "opening_shift",
-			label: __("Opening Shift"),
-			fieldtype: "Link",
-			options: "POS Opening Shift",
-		},
-		{
-			fieldname: "mode_of_payment",
-			label: __("Mode of Payment"),
-			fieldtype: "Link",
-			options: "Mode of Payment",
-		},
-		{
-			fieldname: "currency",
-			label: __("Tender Currency"),
-			fieldtype: "Link",
-			options: "Currency",
-		},
-		{
-			fieldname: "shift_status",
-			label: __("Shift Status"),
-			fieldtype: "Select",
-			options: "\nClosed\nOpen",
-			default: "Closed",
 		},
 	],
 };

@@ -39,22 +39,42 @@ separate controlled cash movement rather than altering the invoice tender rows.
 
 The **POS Awesome** workspace provides:
 
-- Company-currency number cards for today's POS sales.
+- Number cards for today's invoice count and company-currency gross sales,
+  sales after returns, and outstanding POS value.
 - Today's POS return count.
+- Today's submitted closing-shift count.
 - Pending and failed fiscal receipt counts.
-- A 30-day POS sales chart using `base_grand_total`.
+- 30-day gross-sales, sales-after-returns, and return-count charts.
+- Company-currency sales-by-POS-Profile and sales-by-customer charts.
 - A fiscal receipt status chart.
 
 The following standard Script Reports are installed:
 
+- **POS Sales Performance** shows company-currency sales, returns, revenue,
+  discounts, tax, quantity, COGS, and gross profit by day, POS Profile, or
+  cashier. Gross profit is left blank when complete incoming-rate cost data is
+  unavailable.
+- **POS Payment Status** shows paid, partly paid, unpaid, return, and
+  split-tender invoices with company values and physical tender currencies.
+- **POS Item Performance** shows sales, returns, discounts, COGS, and gross
+  margin by item, Item Group, or Brand.
+- **POS Customer Analytics** shows customer value, average sale, return activity,
+  and repeat-customer status.
+- **POS Inventory Status** shows POS-warehouse stock health, sales velocity,
+  stock cover, reorder levels, projected quantities, and stock value.
 - **POS Multi Currency Sales** keeps USD, ZWG, ZAR, and other invoice currencies
   separate and shows ERPNext company-currency equivalents alongside them.
 - **POS Tender Reconciliation** groups opening float, tender movements, change,
   returns, and customer Payment Entries by Mode of Payment and physical currency.
+  Closed-shift rows also show counted closing amounts and variances; the default
+  filter is **Closed**.
 - **Zimbabwe Fiscal Receipt Status** lists accepted, pending, failed, and
-  unprocessed receipts, including device/day/global numbers and the error backlog.
+  unprocessed receipts, including device/day/global numbers, signed company value,
+  transaction exposure, and the error backlog.
 - **Zimbabwe Fiscal Day Summary** groups fiscal invoices and credit notes by device,
-  fiscal day, receipt currency, mapped ZIMRA tax ID, and tax percentage.
+  fiscal day, receipt currency, mapped ZIMRA tax ID, and tax percentage. It is a
+  reconstruction from submitted invoices, not an authoritative ZIMRA day-close
+  result; reconcile it with the provider/device response before statutory use.
 
 Do not add invoice-currency totals from different currencies. Use either the
 currency-specific columns or the explicitly labelled company-currency columns.

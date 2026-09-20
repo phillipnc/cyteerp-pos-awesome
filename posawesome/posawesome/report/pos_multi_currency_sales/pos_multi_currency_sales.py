@@ -90,7 +90,7 @@ def execute(filters=None):
 			"labels": [row["currency"] for row in data],
 			"datasets": [
 				{
-					"name": _("Net Sales ({0})").format(company_currency),
+					"name": _("Sales After Returns ({0})").format(company_currency),
 					"values": [flt(row["company_net_sales"]) for row in data],
 				}
 			],
@@ -116,7 +116,14 @@ def execute(filters=None):
 		{
 			"value": result["net_sales"],
 			"indicator": "Blue",
-			"label": _("Net Sales"),
+			"label": _("Sales After Returns"),
+			"datatype": "Currency",
+			"currency": company_currency,
+		},
+		{
+			"value": result["net_total"],
+			"indicator": "Purple",
+			"label": _("Net Revenue Before Tax"),
 			"datatype": "Currency",
 			"currency": company_currency,
 		},
@@ -145,11 +152,13 @@ def _columns():
 		{"fieldname": "return_count", "label": _("Returns"), "fieldtype": "Int", "width": 80},
 		{"fieldname": "sales", "label": _("Gross Sales"), "fieldtype": "Currency", "options": "currency", "width": 130},
 		{"fieldname": "returns", "label": _("Returns"), "fieldtype": "Currency", "options": "currency", "width": 120},
-		{"fieldname": "net_sales", "label": _("Net Sales"), "fieldtype": "Currency", "options": "currency", "width": 130},
+		{"fieldname": "net_sales", "label": _("Sales After Returns"), "fieldtype": "Currency", "options": "currency", "width": 145},
+		{"fieldname": "net_total", "label": _("Net Revenue Before Tax"), "fieldtype": "Currency", "options": "currency", "width": 165},
 		{"fieldname": "discount", "label": _("Discounts"), "fieldtype": "Currency", "options": "currency", "width": 120},
 		{"fieldname": "company_currency", "label": _("Company Currency"), "fieldtype": "Link", "options": "Currency", "width": 120},
 		{"fieldname": "company_sales", "label": _("Company Gross Sales"), "fieldtype": "Currency", "options": "company_currency", "width": 150},
 		{"fieldname": "company_returns", "label": _("Company Returns"), "fieldtype": "Currency", "options": "company_currency", "width": 140},
-		{"fieldname": "company_net_sales", "label": _("Company Net Sales"), "fieldtype": "Currency", "options": "company_currency", "width": 150},
+		{"fieldname": "company_net_sales", "label": _("Company Sales After Returns"), "fieldtype": "Currency", "options": "company_currency", "width": 190},
+		{"fieldname": "company_net_total", "label": _("Company Net Revenue"), "fieldtype": "Currency", "options": "company_currency", "width": 165},
 		{"fieldname": "company_discount", "label": _("Company Discounts"), "fieldtype": "Currency", "options": "company_currency", "width": 145},
 	]

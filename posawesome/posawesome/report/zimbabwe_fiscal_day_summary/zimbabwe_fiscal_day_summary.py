@@ -103,6 +103,7 @@ def execute(filters=None):
 			"tax_id": key[4],
 			"tax_percent": key[5],
 			"company_currency": company_currency,
+			"data_source": _("Accepted receipt reconstruction"),
 			**values,
 		}
 		for key, values in sorted(groups.items())
@@ -127,19 +128,24 @@ def execute(filters=None):
 		{
 			"value": sum(row["company_sales_with_tax"] for row in data),
 			"indicator": "Green",
-			"label": _("Fiscal Sales"),
+			"label": _("Reconstructed Fiscal Sales"),
 			"datatype": "Currency",
 			"currency": company_currency,
 		},
 		{
 			"value": sum(row["company_tax_amount"] for row in data),
 			"indicator": "Blue",
-			"label": _("Fiscal Tax"),
+			"label": _("Reconstructed Fiscal Tax"),
 			"datatype": "Currency",
 			"currency": company_currency,
 		},
 	]
-	return _columns(), data, None, chart, summary
+	message = _(
+		"This report reconstructs totals from submitted Sales Invoices. "
+		"It is not an authoritative ZIMRA fiscal-day close result; reconcile it "
+		"with the provider/device day-close response before statutory use."
+	)
+	return _columns(), data, message, chart, summary
 
 
 def _validate_filters(filters):
@@ -163,4 +169,5 @@ def _columns():
 		{"fieldname": "company_currency", "label": _("Company Currency"), "fieldtype": "Link", "options": "Currency", "width": 120},
 		{"fieldname": "company_sales_with_tax", "label": _("Company Sales with Tax"), "fieldtype": "Currency", "options": "company_currency", "width": 170},
 		{"fieldname": "company_tax_amount", "label": _("Company Tax"), "fieldtype": "Currency", "options": "company_currency", "width": 135},
+		{"fieldname": "data_source", "label": _("Data Source"), "fieldtype": "Data", "width": 210},
 	]

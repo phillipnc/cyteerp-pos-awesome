@@ -22,6 +22,8 @@ def execute(filters=None):
 		shift_filters["pos_profile"] = filters.pos_profile
 	if filters.opening_shift:
 		shift_filters["name"] = filters.opening_shift
+	if filters.shift_status:
+		shift_filters["status"] = filters.shift_status
 
 	shifts = frappe.get_all(
 		"POS Opening Shift",
@@ -92,6 +94,39 @@ def execute(filters=None):
 		limit_page_length=0,
 		ignore_permissions=True,
 	)
+	closing_shifts = frappe.get_all(
+		"POS Closing Shift",
+		filters={
+			"docstatus": 1,
+			"pos_opening_shift": ["in", shift_names],
+		},
+		fields=["name", "pos_opening_shift"],
+		limit_page_length=0,
+	)
+	closing_names = [row.name for row in closing_shifts]
+	closing_balances = (
+		frappe.get_all(
+			"POS Closing Shift Detail",
+			filters={
+				"parent": ["in", closing_names],
+				"parenttype": "POS Closing Shift",
+			},
+			fields=[
+				"parent",
+				"mode_of_payment",
+				"currency",
+				"company_exchange_rate",
+				"expected_amount",
+				"closing_amount",
+				"company_expected_amount",
+				"company_closing_amount",
+			],
+			limit_page_length=0,
+			ignore_permissions=True,
+		)
+		if closing_names
+		else []
+	)
 	payment_entries = frappe.get_all(
 		"Payment Entry",
 		filters={
@@ -127,6 +162,7 @@ def execute(filters=None):
 		cash_mode_by_shift=cash_modes,
 		payment_entries=payment_entries,
 		opening_balances=opening_balances,
+		closing_balances=closing_balances,
 	)
 	data = []
 	for row in result["payment_mix"]:
@@ -136,6 +172,7 @@ def execute(filters=None):
 			continue
 		data.append({**row, "company_currency": company_currency})
 
+	company_variance = sum(flt(row["company_difference"]) for row in data)
 	summary = [
 		{
 			"value": sum(flt(row["company_transaction_amount"]) for row in data),
@@ -151,8 +188,32 @@ def execute(filters=None):
 			"datatype": "Currency",
 			"currency": company_currency,
 		},
+		{
+			"value": sum(flt(row["company_closing_amount"]) for row in data),
+			"indicator": "Blue",
+			"label": _("Counted Closing"),
+			"datatype": "Currency",
+			"currency": company_currency,
+		},
+		{
+			"value": company_variance,
+			"indicator": (
+				"Green"
+				if abs(company_variance) < 0.00001
+				else "Red"
+			),
+			"label": _("Closing Variance"),
+			"datatype": "Currency",
+			"currency": company_currency,
+		},
 	]
-	return _columns(), data, None, _chart(data, company_currency), summary
+	message = None
+	if filters.shift_status == "Open":
+		message = _(
+			"Open shifts have no counted closing amount yet. Expected values are "
+			"live calculations; variance becomes available after shift submission."
+		)
+	return _columns(), data, message, _chart(data, company_currency), summary
 
 
 def _validate_filters(filters):
@@ -163,21 +224,32 @@ def _validate_filters(filters):
 
 
 def _chart(data, company_currency):
+	datasets = [
+		{
+			"name": _("Expected ({0})").format(company_currency),
+			"values": [
+				flt(row["company_expected_amount"])
+				for row in data
+			],
+		}
+	]
+	if any(row["closing_shift_count"] for row in data):
+		datasets.append(
+			{
+				"name": _("Counted ({0})").format(company_currency),
+				"values": [
+					flt(row["company_closing_amount"])
+					for row in data
+				],
+			}
+		)
 	return {
 		"data": {
 			"labels": [
 				f"{row['mode_of_payment']} · {row['currency']}"
 				for row in data
 			],
-			"datasets": [
-				{
-					"name": _("Movement ({0})").format(company_currency),
-					"values": [
-						flt(row["company_transaction_amount"])
-						for row in data
-					],
-				}
-			],
+			"datasets": datasets,
 		},
 		"type": "bar",
 		"colors": ["#7b61ff"],
@@ -191,8 +263,13 @@ def _columns():
 		{"fieldname": "opening_amount", "label": _("Opening Float"), "fieldtype": "Currency", "options": "currency", "width": 130},
 		{"fieldname": "transaction_amount", "label": _("Tender Movement"), "fieldtype": "Currency", "options": "currency", "width": 145},
 		{"fieldname": "expected_amount", "label": _("Expected Amount"), "fieldtype": "Currency", "options": "currency", "width": 145},
+		{"fieldname": "closing_amount", "label": _("Counted Closing"), "fieldtype": "Currency", "options": "currency", "width": 145},
+		{"fieldname": "difference", "label": _("Variance"), "fieldtype": "Currency", "options": "currency", "width": 120},
+		{"fieldname": "closing_shift_count", "label": _("Closed Shifts"), "fieldtype": "Int", "width": 100},
 		{"fieldname": "company_currency", "label": _("Company Currency"), "fieldtype": "Link", "options": "Currency", "width": 125},
 		{"fieldname": "company_opening_amount", "label": _("Company Opening"), "fieldtype": "Currency", "options": "company_currency", "width": 145},
 		{"fieldname": "company_transaction_amount", "label": _("Company Movement"), "fieldtype": "Currency", "options": "company_currency", "width": 155},
 		{"fieldname": "company_expected_amount", "label": _("Company Expected"), "fieldtype": "Currency", "options": "company_currency", "width": 150},
+		{"fieldname": "company_closing_amount", "label": _("Company Closing"), "fieldtype": "Currency", "options": "company_currency", "width": 150},
+		{"fieldname": "company_difference", "label": _("Company Variance"), "fieldtype": "Currency", "options": "company_currency", "width": 150},
 	]

@@ -1,7 +1,7 @@
 // Copyright (c) 2026, CyteERP contributors
 // License: GPL-3.0
 
-frappe.query_reports["POS Tender Reconciliation"] = {
+frappe.query_reports["POS Inventory Status"] = {
 	filters: [
 		{
 			fieldname: "company",
@@ -13,14 +13,14 @@ frappe.query_reports["POS Tender Reconciliation"] = {
 		},
 		{
 			fieldname: "from_date",
-			label: __("From Date"),
+			label: __("Sales From"),
 			fieldtype: "Date",
 			default: frappe.datetime.month_start(),
 			reqd: 1,
 		},
 		{
 			fieldname: "to_date",
-			label: __("To Date"),
+			label: __("Sales To"),
 			fieldtype: "Date",
 			default: frappe.datetime.get_today(),
 			reqd: 1,
@@ -35,29 +35,31 @@ frappe.query_reports["POS Tender Reconciliation"] = {
 			}),
 		},
 		{
-			fieldname: "opening_shift",
-			label: __("Opening Shift"),
+			fieldname: "warehouse",
+			label: __("Warehouse"),
 			fieldtype: "Link",
-			options: "POS Opening Shift",
+			options: "Warehouse",
+			get_query: () => ({
+				filters: { company: frappe.query_report.get_filter_value("company") },
+			}),
 		},
 		{
-			fieldname: "mode_of_payment",
-			label: __("Mode of Payment"),
+			fieldname: "item_group",
+			label: __("Item Group"),
 			fieldtype: "Link",
-			options: "Mode of Payment",
+			options: "Item Group",
 		},
 		{
-			fieldname: "currency",
-			label: __("Tender Currency"),
-			fieldtype: "Link",
-			options: "Currency",
-		},
-		{
-			fieldname: "shift_status",
-			label: __("Shift Status"),
+			fieldname: "stock_status",
+			label: __("Stock Status"),
 			fieldtype: "Select",
-			options: "\nClosed\nOpen",
-			default: "Closed",
+			options: "\nLow Stock\nOut of Stock\nNegative Stock\nIn Stock",
+		},
+		{
+			fieldname: "low_stock_threshold",
+			label: __("Low Stock Threshold"),
+			fieldtype: "Float",
+			default: 5,
 		},
 	],
 };

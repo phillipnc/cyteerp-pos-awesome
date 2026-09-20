@@ -7,9 +7,25 @@
   {
    "chart_name": "POS Fiscal Receipt Status",
    "label": "POS Fiscal Receipt Status"
+  },
+  {
+   "chart_name": "POS Net Sales Last 30 Days",
+   "label": "POS Net Sales Last 30 Days"
+  },
+  {
+   "chart_name": "POS Returns Last 30 Days",
+   "label": "POS Returns Last 30 Days"
+  },
+  {
+   "chart_name": "POS Sales by Profile This Month",
+   "label": "POS Sales by Profile This Month"
+  },
+  {
+   "chart_name": "POS Sales by Customer This Month",
+   "label": "POS Sales by Customer This Month"
   }
  ],
- "content": "[{\"id\":\"posa-head\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>POS Awesome Operations</b></span>\",\"col\":12}},{\"id\":\"posa-app\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"POS Awesome App\",\"col\":3}},{\"id\":\"posa-sales\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Sales Today\",\"col\":3}},{\"id\":\"posa-returns\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Returns Today\",\"col\":3}},{\"id\":\"posa-failed\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Fiscal Failures\",\"col\":3}},{\"id\":\"posa-pending\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Pending Fiscal Receipts\",\"col\":3}},{\"id\":\"posa-sales-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Sales Last 30 Days\",\"col\":8}},{\"id\":\"posa-fiscal-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Fiscal Receipt Status\",\"col\":4}},{\"id\":\"posa-reports-head\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"posa-reports\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"posa-pos\",\"type\":\"card\",\"data\":{\"card_name\":\"POS\",\"col\":4}},{\"id\":\"posa-profile\",\"type\":\"card\",\"data\":{\"card_name\":\"Profile\",\"col\":4}},{\"id\":\"posa-shift\",\"type\":\"card\",\"data\":{\"card_name\":\"Shift\",\"col\":4}},{\"id\":\"posa-zim\",\"type\":\"card\",\"data\":{\"card_name\":\"Zimbabwe Fiscalisation\",\"col\":4}},{\"id\":\"posa-delivery\",\"type\":\"card\",\"data\":{\"card_name\":\"Delivery Charges\",\"col\":4}},{\"id\":\"posa-offers\",\"type\":\"card\",\"data\":{\"card_name\":\"Offers &amp; Coupons\",\"col\":4}}]",
+ "content": "[{\"id\":\"posa-head\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>POS Awesome Operations</b></span>\",\"col\":12}},{\"id\":\"posa-app\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"POS Awesome App\",\"col\":3}},{\"id\":\"posa-invoices\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Invoices Today\",\"col\":3}},{\"id\":\"posa-sales\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Sales Today\",\"col\":3}},{\"id\":\"posa-net-sales\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Net Sales Today\",\"col\":3}},{\"id\":\"posa-outstanding\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Outstanding Today\",\"col\":3}},{\"id\":\"posa-returns\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Returns Today\",\"col\":3}},{\"id\":\"posa-closed-shifts\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Closed Shifts Today\",\"col\":3}},{\"id\":\"posa-failed\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Fiscal Failures\",\"col\":3}},{\"id\":\"posa-pending\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"POS Pending Fiscal Receipts\",\"col\":3}},{\"id\":\"posa-sales-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Sales Last 30 Days\",\"col\":6}},{\"id\":\"posa-net-sales-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Net Sales Last 30 Days\",\"col\":6}},{\"id\":\"posa-profile-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Sales by Profile This Month\",\"col\":6}},{\"id\":\"posa-customer-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Sales by Customer This Month\",\"col\":6}},{\"id\":\"posa-returns-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Returns Last 30 Days\",\"col\":6}},{\"id\":\"posa-fiscal-chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"POS Fiscal Receipt Status\",\"col\":6}},{\"id\":\"posa-reports-head\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Setup</b></span>\",\"col\":12}},{\"id\":\"posa-reports\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"posa-pos\",\"type\":\"card\",\"data\":{\"card_name\":\"POS\",\"col\":4}},{\"id\":\"posa-profile\",\"type\":\"card\",\"data\":{\"card_name\":\"Profile\",\"col\":4}},{\"id\":\"posa-shift\",\"type\":\"card\",\"data\":{\"card_name\":\"Shift\",\"col\":4}},{\"id\":\"posa-zim\",\"type\":\"card\",\"data\":{\"card_name\":\"Zimbabwe Fiscalisation\",\"col\":4}},{\"id\":\"posa-delivery\",\"type\":\"card\",\"data\":{\"card_name\":\"Delivery Charges\",\"col\":4}},{\"id\":\"posa-offers\",\"type\":\"card\",\"data\":{\"card_name\":\"Offers &amp; Coupons\",\"col\":4}}]",
  "creation": "2022-11-29 14:33:45.038200",
  "custom_blocks": [],
  "docstatus": 0,
@@ -25,9 +41,59 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Reports",
-   "link_count": 4,
+   "link_count": 9,
    "onboard": 0,
    "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "POS Sales Performance",
+   "link_count": 0,
+   "link_to": "POS Sales Performance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "POS Payment Status",
+   "link_count": 0,
+   "link_to": "POS Payment Status",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "POS Item Performance",
+   "link_count": 0,
+   "link_to": "POS Item Performance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "POS Customer Analytics",
+   "link_count": 0,
+   "link_to": "POS Customer Analytics",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "POS Inventory Status",
+   "link_count": 0,
+   "link_to": "POS Inventory Status",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   },
   {
    "hidden": 0,
@@ -224,12 +290,28 @@
  "name": "POS Awesome",
  "number_cards": [
   {
+   "label": "POS Invoices Today",
+   "number_card_name": "POS Invoices Today"
+  },
+  {
    "label": "POS Sales Today",
    "number_card_name": "POS Sales Today"
   },
   {
    "label": "POS Returns Today",
    "number_card_name": "POS Returns Today"
+  },
+  {
+   "label": "POS Net Sales Today",
+   "number_card_name": "POS Net Sales Today"
+  },
+  {
+   "label": "POS Outstanding Today",
+   "number_card_name": "POS Outstanding Today"
+  },
+  {
+   "label": "POS Closed Shifts Today",
+   "number_card_name": "POS Closed Shifts Today"
   },
   {
    "label": "Fiscal Failures",

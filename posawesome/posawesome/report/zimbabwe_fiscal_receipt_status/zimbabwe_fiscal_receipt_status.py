@@ -91,9 +91,18 @@ def execute(filters=None):
 	]
 	summary.append(
 		{
-			"value": sum(abs(flt(row.base_grand_total)) for row in rows),
+			"value": sum(flt(row.base_grand_total) for row in rows),
 			"indicator": "Blue",
-			"label": _("Company Value"),
+			"label": _("Net Company Value"),
+			"datatype": "Currency",
+			"currency": company_currency,
+		}
+	)
+	summary.append(
+		{
+			"value": sum(abs(flt(row.base_grand_total)) for row in rows),
+			"indicator": "Gray",
+			"label": _("Transaction Exposure"),
 			"datatype": "Currency",
 			"currency": company_currency,
 		}

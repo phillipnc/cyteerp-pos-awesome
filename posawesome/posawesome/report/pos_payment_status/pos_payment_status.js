@@ -1,7 +1,7 @@
 // Copyright (c) 2026, CyteERP contributors
 // License: GPL-3.0
 
-frappe.query_reports["POS Tender Reconciliation"] = {
+frappe.query_reports["POS Payment Status"] = {
 	filters: [
 		{
 			fieldname: "company",
@@ -35,29 +35,16 @@ frappe.query_reports["POS Tender Reconciliation"] = {
 			}),
 		},
 		{
-			fieldname: "opening_shift",
-			label: __("Opening Shift"),
-			fieldtype: "Link",
-			options: "POS Opening Shift",
-		},
-		{
-			fieldname: "mode_of_payment",
-			label: __("Mode of Payment"),
-			fieldtype: "Link",
-			options: "Mode of Payment",
-		},
-		{
-			fieldname: "currency",
-			label: __("Tender Currency"),
-			fieldtype: "Link",
-			options: "Currency",
-		},
-		{
-			fieldname: "shift_status",
-			label: __("Shift Status"),
+			fieldname: "payment_status",
+			label: __("Payment Status"),
 			fieldtype: "Select",
-			options: "\nClosed\nOpen",
-			default: "Closed",
+			options: "\nPaid\nPartly Paid\nUnpaid\nReturn",
+		},
+		{
+			fieldname: "split_only",
+			label: __("Split Payments Only"),
+			fieldtype: "Check",
+			default: 0,
 		},
 	],
 };
