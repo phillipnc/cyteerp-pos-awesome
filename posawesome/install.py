@@ -306,6 +306,7 @@ def after_install():
 	create_custom_fields(V16_CUSTOM_FIELDS, ignore_validate=True)
 	_backfill_reporting_fields()
 	_add_database_constraints()
+	_sync_reporting_workspace()
 	_sync_pos_print_format()
 	frappe.db.commit()
 
@@ -314,8 +315,63 @@ def after_migrate():
 	create_custom_fields(V16_CUSTOM_FIELDS, ignore_validate=True)
 	_backfill_reporting_fields()
 	_add_database_constraints()
+	_sync_reporting_workspace()
 	_sync_pos_print_format()
 	frappe.db.commit()
+
+
+def _sync_reporting_workspace():
+	"""Refresh POS reporting records on existing sites.
+
+	Reports, dashboard charts, number cards, and the workspace are standard
+	records stored under the app module.  A workspace that was installed before
+	the reporting update can otherwise remain in the database with its old
+	links, even though the updated JSON files are present in the app.
+	"""
+	standard_records = {
+		"report": (
+			"pos_customer_analytics",
+			"pos_inventory_status",
+			"pos_item_performance",
+			"pos_multi_currency_sales",
+			"pos_payment_status",
+			"pos_sales_performance",
+			"pos_tender_reconciliation",
+			"zimbabwe_fiscal_day_summary",
+			"zimbabwe_fiscal_receipt_status",
+		),
+		"dashboard_chart": (
+			"pos_fiscal_receipt_status",
+			"pos_net_sales_last_30_days",
+			"pos_returns_last_30_days",
+			"pos_sales_by_customer_this_month",
+			"pos_sales_by_profile_this_month",
+			"pos_sales_last_30_days",
+		),
+		"number_card": (
+			"pos_closed_shifts_today",
+			"pos_fiscal_failures",
+			"pos_invoices_today",
+			"pos_net_sales_today",
+			"pos_outstanding_today",
+			"pos_pending_fiscal_receipts",
+			"pos_returns_today",
+			"pos_sales_today",
+		),
+		"workspace": ("pos_awesome",),
+	}
+
+	for doctype, names in standard_records.items():
+		for name in names:
+			try:
+				frappe.reload_doc("posawesome", doctype, name)
+			except Exception:
+				# Keep migrations resilient on sites where an optional record
+				# cannot be reloaded; the error is visible in the Error Log.
+				frappe.log_error(
+					title=f"POS Awesome: could not sync {doctype} {name}",
+					message=frappe.get_traceback(),
+				)
 
 
 def _add_database_constraints():

@@ -47,7 +47,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "POS Sales Performance",
    "link_count": 0,
    "link_to": "POS Sales Performance",
@@ -57,7 +57,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "POS Payment Status",
    "link_count": 0,
    "link_to": "POS Payment Status",
@@ -67,7 +67,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "POS Item Performance",
    "link_count": 0,
    "link_to": "POS Item Performance",
@@ -77,7 +77,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "POS Customer Analytics",
    "link_count": 0,
    "link_to": "POS Customer Analytics",
@@ -87,7 +87,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "POS Inventory Status",
    "link_count": 0,
    "link_to": "POS Inventory Status",
@@ -97,7 +97,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "POS Multi Currency Sales",
    "link_count": 0,
    "link_to": "POS Multi Currency Sales",
@@ -107,7 +107,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "POS Tender Reconciliation",
    "link_count": 0,
    "link_to": "POS Tender Reconciliation",
@@ -117,7 +117,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "Zimbabwe Fiscal Receipt Status",
    "link_count": 0,
    "link_to": "Zimbabwe Fiscal Receipt Status",
@@ -127,7 +127,7 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "Zimbabwe Fiscal Day Summary",
    "link_count": 0,
    "link_to": "Zimbabwe Fiscal Day Summary",
@@ -284,7 +284,7 @@
    "type": "Link"
   }
  ],
- "modified": "2023-06-07 17:35:14.887611",
+ "modified": "2026-09-20 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "POSAwesome",
  "name": "POS Awesome",
