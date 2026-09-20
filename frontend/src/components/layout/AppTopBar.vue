@@ -27,7 +27,12 @@ const initials = computed(() =>
 	<header
 		class="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-3 sm:px-4"
 	>
-		<div class="flex items-center gap-2.5">
+		<a
+			href="/app/pos-awesome"
+			class="flex items-center gap-2.5 rounded-card outline-none transition hover:opacity-85 focus-visible:ring-2 focus-visible:ring-accent"
+			title="Open POS Awesome dashboard"
+			aria-label="Open POS Awesome dashboard"
+		>
 			<span class="grid size-9 place-items-center rounded-card bg-accent text-accent-fg shadow-glow">
 				<ShoppingBag class="size-5" />
 			</span>
@@ -35,7 +40,7 @@ const initials = computed(() =>
 				<p class="text-sm font-semibold">POS Awesome</p>
 				<p class="text-[11px] text-subtle">{{ session.profile?.name || "No profile" }}</p>
 			</div>
-		</div>
+		</a>
 
 		<div class="mx-1 hidden h-7 w-px bg-line md:block" />
 
